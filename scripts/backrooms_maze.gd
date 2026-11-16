@@ -45,7 +45,7 @@ const MAZE_MAP: PackedStringArray = [
 	"#....#.#..###..###.##.#.#",
 	"#.D..#L...#.........#...#",
 	"#.........#..D...L....D.#",
-	"#########################",
+	"#####.###################",
 ]
 
 var _flicker_lights: Array[Dictionary] = []
@@ -200,6 +200,55 @@ func _populate_props(props_root: Node3D, half_x: float, half_z: float) -> void:
 		+ "如果迷路了，記得貼著南邊牆壁往東南角走——\n"
 		+ "聽見遠處突然跳電的時候，你離 EXIT 就不遠了。"
 	)
+
+	_add_og_details(props_root, half_x, half_z)
+
+
+func _add_og_details(parent: Node3D, half_x: float, half_z: float) -> void:
+	var trim_mat := StandardMaterial3D.new()
+	trim_mat.albedo_color = Color(0.52, 0.45, 0.24)
+	trim_mat.roughness = 0.78
+
+	var outlet_mat := StandardMaterial3D.new()
+	outlet_mat.albedo_color = Color(0.76, 0.72, 0.56)
+	outlet_mat.roughness = 0.65
+
+	var trim_x_mesh := BoxMesh.new()
+	trim_x_mesh.size = Vector3(CELL_SIZE, 0.08, 0.03)
+	var trim_z_mesh := BoxMesh.new()
+	trim_z_mesh.size = Vector3(0.03, 0.08, CELL_SIZE)
+	var outlet_mesh := BoxMesh.new()
+	outlet_mesh.size = Vector3(0.11, 0.16, 0.025)
+
+	# Add OGLevel0-style baseboard trim & outlets along visible walls in rows 16..24, cols 0..10
+	for y in range(16, 25):
+		for x in range(0, 11):
+			if MAZE_MAP[y][x] != "#":
+				continue
+			var wx := (x - half_x) * CELL_SIZE
+			var wz := (y - half_z) * CELL_SIZE
+			var half_c := CELL_SIZE * 0.5 + 0.015
+			if y > 0 and MAZE_MAP[y - 1][x] != "#":
+				_place_deco(parent, trim_x_mesh, trim_mat, Vector3(wx, 0.16, wz - half_c), 0.0)
+			if y < MAZE_MAP.size() - 1 and MAZE_MAP[y + 1][x] != "#":
+				_place_deco(parent, trim_x_mesh, trim_mat, Vector3(wx, 0.16, wz + half_c), 0.0)
+				if (x + y) % 4 == 0:
+					_place_deco(parent, outlet_mesh, outlet_mat, Vector3(wx, 0.34, wz + half_c), 0.0)
+			if x > 0 and MAZE_MAP[y][x - 1] != "#":
+				_place_deco(parent, trim_z_mesh, trim_mat, Vector3(wx - half_c, 0.16, wz), 0.0)
+			if x < MAZE_MAP[0].length() - 1 and MAZE_MAP[y][x + 1] != "#":
+				_place_deco(parent, trim_z_mesh, trim_mat, Vector3(wx + half_c, 0.16, wz), 0.0)
+				if (x + y) % 5 == 0:
+					_place_deco(parent, outlet_mesh, outlet_mat, Vector3(wx + half_c, 0.34, wz), 90.0)
+
+
+func _place_deco(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, rot_y: float) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.position = pos
+	mi.rotation_degrees = Vector3(0.0, rot_y, 0.0)
+	parent.add_child(mi)
 
 
 func _spawn_desk(parent: Node3D, node_name: String, pos: Vector3, rot_y: float, with_light: bool,

@@ -9,7 +9,8 @@
 [ext_resource type="Script" uid="uid://r7ppug2c0dee" path="res://scripts/level0_annex.gd" id="8_xyem5"]
 [ext_resource type="Script" uid="uid://gms3y0yeqn4p" path="res://scripts/win95_ui.gd" id="9_h3ida"]
 [ext_resource type="Script" uid="uid://7vhjt58f0xro" path="res://scripts/zone3_liminal.gd" id="9_loab8"]
-[ext_resource type="Script" path="res://scripts/monster.gd" id="10_h3ida"]
+[ext_resource type="Script" uid="uid://f3p5hhqhvs3h" path="res://scripts/monster.gd" id="10_h3ida"]
+[ext_resource type="Script" path="res://scripts/level0_variants.gd" id="11_aglw0"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_w3b4y"]
 
@@ -81,3 +82,6 @@ script = ExtResource("9_loab8")
 [node name="Monster" type="Node3D" parent="." unique_id=1019418328]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.8, 0, -23.4)
 script = ExtResource("10_h3ida")
+
+[node name="Level0Variants" type="Node3D" parent="." unique_id=287399491]
+script = ExtResource("11_aglw0")
