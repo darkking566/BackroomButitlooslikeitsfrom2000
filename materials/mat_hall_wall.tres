@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://p5o2jr8wgt3w"]
+
+[ext_resource type="Shader" uid="uid://bgnxoioqu68ao" path="res://shaders/zone2_concrete.gdshader" id="1_h28xb"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_h28xb")
+shader_parameter/base_color = Color(0.58, 0.6, 0.62, 1)
+shader_parameter/grid_color = Color(0.3, 0.32, 0.34, 1)
+shader_parameter/roughness_val = 0.9
+shader_parameter/metallic_val = 0.0
+shader_parameter/tile_grid_strength = 0.0
+shader_parameter/tile_scale = 0.85
+shader_parameter/noise_strength = 0.04
+shader_parameter/jitter_resolution = 160.0
+shader_parameter/affine_strength = 0.72

@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://ceyk3g4jt7q3t"]
+
+[ext_resource type="Script" uid="uid://bl55uqira7phn" path="res://scripts/player.gd" id="1_3vyb7"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2els"]
+radius = 0.35
+height = 1.7
+
+[node name="Player" type="CharacterBody3D" unique_id=1927792129]
+script = ExtResource("1_3vyb7")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=317848113]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("CapsuleShape3D_g2els")
+
+[node name="Head" type="Node3D" parent="." unique_id=815201934]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head" unique_id=1649258951]
+current = true
+
+[node name="Flashlight" type="SpotLight3D" parent="Head/Camera3D" unique_id=1669395212]
+visible = false
+light_color = Color(1, 0.96, 0.85, 1)
+light_energy = 3.5
+shadow_enabled = true
+spot_range = 18.0
+spot_angle = 32.0
+
+[node name="InteractRay" type="RayCast3D" parent="Head/Camera3D" unique_id=1108949097]
+target_position = Vector3(0, 0, -2.8)
+
+[node name="FootstepPlayer" type="AudioStreamPlayer" parent="." unique_id=339414843]

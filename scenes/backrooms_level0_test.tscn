@@ -1,0 +1,101 @@
+[gd_scene format=3 uid="uid://dpf17rbc5jwuy"]
+
+[ext_resource type="Script" uid="uid://cy6a8hr16p73y" path="res://scripts/backrooms_maze.gd" id="3_h6suy"]
+[ext_resource type="Script" uid="uid://b7i8s4kdkfpjk" path="res://scripts/ambient_hum.gd" id="4_2si3n"]
+[ext_resource type="Script" uid="uid://uc75wt1685wq" path="res://scripts/zone2_hall.gd" id="5_2si3n"]
+[ext_resource type="PackedScene" uid="uid://ceyk3g4jt7q3t" path="res://scenes/player.tscn" id="5_h3ida"]
+[ext_resource type="PackedScene" uid="uid://ccpaipeyuafrm" path="res://assets/models/retro_office_desk.glb" id="6_2ogsp"]
+[ext_resource type="Material" uid="uid://cixaxdbgv3kbd" path="res://materials/mat_ps2_post.tres" id="6_aglw0"]
+[ext_resource type="Script" uid="uid://bqiy64mrrdrti" path="res://scripts/interactable_prop.gd" id="6_loab8"]
+[ext_resource type="PackedScene" uid="uid://br02pou41eux7" path="res://assets/models/exit_sign.glb" id="7_xyem5"]
+[ext_resource type="Script" uid="uid://gms3y0yeqn4p" path="res://scripts/win95_ui.gd" id="9_h3ida"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_w3b4y"]
+
+[sub_resource type="Sky" id="Sky_nyvgl"]
+sky_material = SubResource("ProceduralSkyMaterial_w3b4y")
+
+[sub_resource type="Environment" id="Environment_36q2d"]
+background_mode = 2
+sky = SubResource("Sky_nyvgl")
+ambient_light_source = 2
+ambient_light_color = Color(0.65, 0.6, 0.38, 1)
+ambient_light_energy = 0.38
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.5, 0.47, 0.27, 1)
+fog_density = 0.085
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_loab8"]
+size = Vector3(1.45, 1.16, 0.78)
+
+[node name="BackroomsTest" type="Node3D" unique_id=2000596382]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1234333310]
+environment = SubResource("Environment_36q2d")
+
+[node name="Player" parent="." unique_id=1927792129 instance=ExtResource("5_h3ida")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -13, 0.05, 7.8)
+
+[node name="PS2PostLayer" type="CanvasLayer" parent="." unique_id=1243369708]
+
+[node name="PS2Filter" type="ColorRect" parent="PS2PostLayer" unique_id=1574937394]
+material = ExtResource("6_aglw0")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="BackroomsMaze" type="Node3D" parent="." unique_id=786747584]
+script = ExtResource("3_h6suy")
+
+[node name="AmbientHum" type="AudioStreamPlayer" parent="." unique_id=673906322]
+script = ExtResource("4_2si3n")
+
+[node name="Zone2Hall" type="Node3D" parent="." unique_id=485323000]
+script = ExtResource("5_2si3n")
+
+[node name="Props" type="Node3D" parent="." unique_id=1641668399]
+
+[node name="RetroOfficeDesk" type="StaticBody3D" parent="Props" unique_id=6889626]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -2, 0, 7.8)
+script = ExtResource("6_loab8")
+prompt_text = "檢視舊電腦磁片資料"
+body_text = "【磁片紀錄：Memory 43】
+日期：?/??/????  時間：??:??
+
+我已經在這片黃色牆壁裡走了不知道幾個小時…
+日光燈一直在頭頂嗡嗡作響。
+
+剛才在東邊走廊盡頭看到一塊紅色的 EXIT 燈牌。
+門後面好像連著別的空間，地板都是濕的，
+再往裡面好像還有灰白圓柱大廳……
+
+如果有人讀到這份存檔：
+沿著東側 EXIT 燈牌走進去，到盡頭控制門看看吧。"
+
+[node name="DeskModel" parent="Props/RetroOfficeDesk" unique_id=465752790 instance=ExtResource("6_2ogsp")]
+
+[node name="DeskCollision" type="CollisionShape3D" parent="Props/RetroOfficeDesk" unique_id=772307061]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.58, 0)
+shape = SubResource("BoxShape3D_loab8")
+
+[node name="CRTGlowLight" type="OmniLight3D" parent="Props/RetroOfficeDesk" unique_id=194868204]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.08, 1, 0.35)
+light_color = Color(0.18, 0.85, 0.38, 1)
+light_energy = 0.4
+omni_range = 2.6
+
+[node name="ExitSign" type="Node3D" parent="Props" unique_id=1277935522]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 16.82, 2.75, 7.8)
+
+[node name="ExitSignModel" parent="Props/ExitSign" unique_id=627061606 instance=ExtResource("7_xyem5")]
+
+[node name="ExitSignGlow" type="OmniLight3D" parent="Props/ExitSign" unique_id=1716104346]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0.35)
+light_color = Color(1, 0.16, 0.12, 1)
+light_energy = 0.65
+omni_range = 4.2
+
+[node name="Win95UI" type="CanvasLayer" parent="." unique_id=1313315636]
+script = ExtResource("9_h3ida")

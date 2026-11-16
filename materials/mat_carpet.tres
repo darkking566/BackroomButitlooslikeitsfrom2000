@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bds82ppghngpk"]
+
+[ext_resource type="Shader" uid="uid://cddomts05awis" path="res://shaders/backrooms_carpet.gdshader" id="1_p6bmi"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_p6bmi")
+shader_parameter/carpet_color = Color(0.55, 0.5, 0.3, 1)

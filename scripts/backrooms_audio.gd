@@ -1,0 +1,77 @@
+class_name BackroomsAudio
+extends RefCounted
+
+
+static func create_fluorescent_hum_stream() -> AudioStreamWAV:
+	var mix_rate := 22050
+	var duration_sec := 2.0
+	var sample_count := int(mix_rate * duration_sec)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42017
+	var lp_noise := 0.0
+
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		# 60 Hz mains + 120 Hz ballast buzz + subtle upper harmonics
+		var hum := 0.22 * sin(TAU * 60.0 * t)
+		hum += 0.34 * sin(TAU * 120.0 * t + 0.4)
+		hum += 0.14 * sin(TAU * 180.0 * t + 1.1)
+		hum += 0.08 * sin(TAU * 240.0 * t)
+		hum += 0.04 * sin(TAU * 360.0 * t)
+
+		# Very soft filtered electrical hiss
+		lp_noise = lerpf(lp_noise, rng.randf_range(-1.0, 1.0), 0.06)
+		var sample := clampf((hum * 0.32) + (lp_noise * 0.045), -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = mix_rate
+	wav.stereo = false
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_begin = 0
+	wav.loop_end = sample_count
+	wav.data = bytes
+	return wav
+
+
+static func create_carpet_footstep_stream() -> AudioStreamWAV:
+	var mix_rate := 22050
+	var duration_sec := 0.14
+	var sample_count := int(mix_rate * duration_sec)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9001
+	var lp := 0.0
+	var phase := 0.0
+
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		var progress := float(i) / float(sample_count)
+		# Soft heel thud dropping from 110 Hz -> 42 Hz
+		var freq := lerpf(110.0, 42.0, minf(progress * 2.5, 1.0))
+		phase += TAU * freq / float(mix_rate)
+		var thud := sin(phase) * exp(-t * 28.0)
+
+		# Muffled damp carpet brush
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.13)
+		var brush := lp * exp(-t * 18.0)
+
+		# Smooth de-click attack/release envelope
+		var attack := minf(t / 0.008, 1.0)
+		var tail := clampf((duration_sec - t) / 0.02, 0.0, 1.0)
+		var sample := clampf((thud * 0.55 + brush * 0.45) * attack * tail, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = mix_rate
+	wav.stereo = false
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	wav.data = bytes
+	return wav

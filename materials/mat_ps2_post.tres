@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cixaxdbgv3kbd"]
+
+[ext_resource type="Shader" uid="uid://gjyeldla5jie" path="res://shaders/ps2_post.gdshader" id="1_y7mpc"]
+
+[resource]
+shader = ExtResource("1_y7mpc")
+shader_parameter/pixel_size = 2.0
+shader_parameter/color_levels = 28.0
+shader_parameter/dither_strength = 0.015
+shader_parameter/vignette_strength = 0.18

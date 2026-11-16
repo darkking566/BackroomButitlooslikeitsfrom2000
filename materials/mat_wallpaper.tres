@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://e2kh802si6wd"]
+
+[ext_resource type="Shader" uid="uid://d2vmidh20g0hy" path="res://shaders/backrooms_wallpaper.gdshader" id="1_tak4h"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_tak4h")
+shader_parameter/base_color = Color(0.76, 0.7, 0.4, 1)
+shader_parameter/stripe_color = Color(0.68, 0.62, 0.34, 1)
+shader_parameter/baseboard_color = Color(0.46, 0.41, 0.25, 1)

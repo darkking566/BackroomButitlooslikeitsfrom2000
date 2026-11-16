@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cvphbgixt2j82"]
+
+[ext_resource type="Shader" uid="uid://33qx0rcgt5oe" path="res://shaders/backrooms_ceiling.gdshader" id="1_3m3rj"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_3m3rj")
+shader_parameter/tile_color = Color(0.82, 0.8, 0.68, 1)
+shader_parameter/grid_color = Color(0.52, 0.5, 0.42, 1)
