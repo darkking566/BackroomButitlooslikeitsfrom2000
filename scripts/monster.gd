@@ -4,7 +4,7 @@ extends Node3D
 # 狀態：巡邏 → 調查（聽到）→ 凝視（遠遠看到）→ 追擊 → 搜索（跟丟）→ 折返 / 埋伏 / 回巡邏。
 # 每次追擊開始時隨機抽一種「追法」：直衝攔截、被看就不動、繞到背後。
 
-enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH, APPARITION }
+enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH, APPARITION, PEEK }
 enum Mood { RUSH, STALK, FLANK }
 
 const HEAT_CELL := 4.0     # 熱度表格子邊長（公尺）
@@ -32,7 +32,12 @@ var _player: CharacterBody3D
 var _ui: Node
 var _model: Node3D
 var _anim: AnimationPlayer
+var _skel: Skeleton3D
+var _head_bone := -1
+var _chest_bone := -1
 var _steps: AudioStreamPlayer3D
+var _snap_sfx: AudioStreamPlayer3D
+var _lure_sfx: AudioStreamPlayer3D
 var _home: Vector3
 var _nav_ready := false
 var _path := PackedVector3Array()
@@ -50,11 +55,20 @@ var _heat := {}          # Vector3i 格子 -> 玩家待過的次數
 var _heat_pos := {}      # Vector3i 格子 -> 玩家在該格最後的實際位置（保留樓層高度）
 var _heat_t := 0.0
 var _lights: Array[Node] = []
-var _dimmed: Array[Node] = []  # 被牠弄熄的燈，離開後要點回來
+var _dimmed: Dictionary = {}  # 被牠弄熄的燈 -> 剩餘延遲復電秒數
 var _light_t := 0.0
 var _event_t := 60.0     # 巡邏中每 45–90 秒觸發一次「靈異事件」
 var _app_t := 0.0        # 幻影最多停留的秒數
 var _app_watch := 0.0    # 幻影被你盯著的累計秒數
+var _snap_roll := 0.0    # 站著不動時脖子歪斜角度
+var _snap_t := 2.0
+var _peek_lean := 0.0    # 轉角探頭側傾角度
+var _peek_t := 0.0
+var _peek_watch := 0.0
+var _flash_burn := 0.0   # 被手電筒直射臉部的累計秒數
+var _stagger_t := 0.0    # 被手電筒照到暴走前的抽搐硬直
+var _enraged_t := 0.0    # 暴走加速剩餘秒數
+var _lure_t := 15.0      # 誘餌怪聲冷卻秒數
 var _echo: AudioStreamPlayer3D
 var _echo_left := 0      # 回聲腳步還剩幾步
 var _echo_t := 0.0
@@ -79,6 +93,19 @@ func _ready() -> void:
 	_echo.stream = _steps.stream  # 和玩家同一種地毯腳步，聽起來像你自己的
 	_echo.top_level = true        # 位置跟著玩家背後，不跟怪物
 	add_child(_echo)
+	_snap_sfx = AudioStreamPlayer3D.new()
+	_snap_sfx.stream = BackroomsAudio.create_light_pop_stream()
+	_snap_sfx.pitch_scale = 0.52
+	_snap_sfx.volume_db = -6.0
+	_snap_sfx.max_distance = 18.0
+	add_child(_snap_sfx)
+	_lure_sfx = AudioStreamPlayer3D.new()
+	_lure_sfx.stream = BackroomsAudio.create_fluorescent_hum_stream()
+	_lure_sfx.top_level = true
+	_lure_sfx.pitch_scale = 0.62
+	_lure_sfx.volume_db = -8.0
+	_lure_sfx.max_distance = 26.0
+	add_child(_lure_sfx)
 	var filter := get_parent().get_node_or_null("PS2PostLayer/PS2Filter")
 	if filter and filter.material is ShaderMaterial:
 		_post_mat = filter.material
@@ -109,14 +136,24 @@ func _bake_navmesh() -> void:
 func _physics_process(delta: float) -> void:
 	if not _nav_ready or (_ui and _ui.is_popup_open()):
 		return  # 玩家讀文件時動不了，怪物也暫停才公平
-	_think(delta)
-	var moved := _move(delta)
+	var dist := global_position.distance_to(_player.global_position)
+	if _enraged_t > 0.0:
+		_enraged_t -= delta
+	var moved := false
+	if _stagger_t > 0.0:
+		_stagger_t -= delta
+	else:
+		_think(delta)
+		moved = _move(delta)
+	_update_flashlight_reaction(delta, dist)
+	_update_neck_snap(delta, moved)
+	_update_lure(delta, dist)
 	_light_t -= delta
 	if _light_t <= 0.0:
-		_light_t = 0.12
-		_update_lights()
+		var dt := 0.12
+		_light_t = dt
+		_update_lights(dt)
 	_update_echo(delta)
-	var dist := global_position.distance_to(_player.global_position)
 	if _post_mat:
 		# 越近畫面越碎：像素變大、色階變少、四周變暗
 		var k := clampf(1.0 - dist / DREAD_DIST, 0.0, 1.0)
@@ -141,6 +178,9 @@ func _think(delta: float) -> void:
 	_sees = _sees_player()
 	if state == State.APPARITION:
 		_haunt(delta, dist)
+		return
+	if state == State.PEEK:
+		_peek(delta, dist)
 		return
 	if _sees:
 		_last_seen = ppos
@@ -181,10 +221,11 @@ func _think(delta: float) -> void:
 	_event_t -= delta
 	if state == State.PATROL and _event_t <= 0.0:
 		_event_t = randf_range(45.0, 90.0)
-		match randi() % 3:
+		match randi() % 4:
 			0: _appear(true)
 			1: _appear(false)
 			2: _echo_left = randi_range(6, 12)
+			3: _start_peek()
 	if state != State.CHASE and state != State.AMBUSH and _repath_t <= 0.0 and _hears_player(dist):
 		_repath_t = 1.0
 		state = State.INVESTIGATE
@@ -362,7 +403,8 @@ func _move(delta: float) -> bool:
 		return false  # 你盯著牠時牠一動也不動
 	var speed := patrol_speed
 	if state == State.CHASE:
-		speed = minf(chase_speed + 0.1 * _anger, MAX_CHASE_SPEED)
+		var bonus := 0.35 if _enraged_t > 0.0 else 0.0
+		speed = minf(chase_speed + 0.1 * _anger + bonus, MAX_CHASE_SPEED)
 	elif state != State.PATROL:
 		speed = investigate_speed
 	global_position = global_position.move_toward(_path[_path_i], speed * delta)
@@ -377,16 +419,23 @@ func _move(delta: float) -> bool:
 
 
 # shortcut: 只記錄「牠弄熄的燈」再點回來；若異常燈剛好在牠身邊被觸發熄滅，牠離開後會被誤點亮。要根治得讓異常燈自己標記已熄。
-func _update_lights() -> void:
+func _update_lights(dt: float) -> void:
 	for light in _lights:
 		var d: float = light.global_position.distance_to(global_position)
-		var off := d < LIGHT_KILL_DIST or (d < LIGHT_FLICKER_DIST and randf() < 0.35)
-		if off and light.visible:
+		if d < LIGHT_KILL_DIST:
 			light.visible = false
-			_dimmed.append(light)
-		elif not off and light in _dimmed:
-			light.visible = true
-			_dimmed.erase(light)
+			_dimmed[light] = randf_range(10.0, 15.0)  # 經過的走廊延遲 10–15 秒才復電
+		elif d < LIGHT_FLICKER_DIST and randf() < 0.35:
+			light.visible = false
+			if not _dimmed.has(light):
+				_dimmed[light] = 0.25
+		elif _dimmed.has(light):
+			_dimmed[light] -= dt
+			if _dimmed[light] <= 0.0:
+				light.visible = true
+				_dimmed.erase(light)
+			elif _dimmed[light] < 1.5:
+				light.visible = randf() < 0.45  # 復電前先閃爍幾下
 
 
 func _reset() -> void:
@@ -394,6 +443,11 @@ func _reset() -> void:
 	_path = PackedVector3Array()
 	_path_i = 0
 	_echo_left = 0
+	_snap_roll = 0.0
+	_peek_lean = 0.0
+	_flash_burn = 0.0
+	_stagger_t = 0.0
+	_enraged_t = 0.0
 	state = State.PATROL
 
 
@@ -412,14 +466,31 @@ func _build_sprite() -> void:
 					a.loop_mode = Animation.LOOP_LINEAR
 			if _anim.has_animation("Idle"):
 				_anim.play("Idle")
+		var skels := _model.find_children("*", "Skeleton3D", true, false)
+		if not skels.is_empty() and skels[0] is Skeleton3D:
+			_skel = skels[0]
+			_head_bone = _skel.find_bone("head")
+			_chest_bone = _skel.find_bone("chest")
+			_skel.skeleton_updated.connect(_on_skeleton_updated)
+
+
+func _on_skeleton_updated() -> void:
+	if not _skel:
+		return
+	if _head_bone >= 0 and absf(_snap_roll) > 0.001:
+		var rot := _skel.get_bone_pose_rotation(_head_bone)
+		_skel.set_bone_pose_rotation(_head_bone, rot * Quaternion(Vector3.FORWARD, _snap_roll))
+	if _chest_bone >= 0 and absf(_peek_lean) > 0.001:
+		var rot := _skel.get_bone_pose_rotation(_chest_bone)
+		_skel.set_bone_pose_rotation(_chest_bone, rot * Quaternion(Vector3.FORWARD, _peek_lean))
 
 
 func _update_visual(delta: float, moved: bool, dist: float) -> void:
 	if not _model:
 		return
-	# 面向：凝視/幻影/近距離時盯著玩家，移動時面向行進方向
+	# 面向：凝視/幻影/探頭/近距離時盯著玩家，移動時面向行進方向
 	var face_target := _player.global_position
-	var look_at_player := not moved or state == State.STARE or state == State.APPARITION or dist < NEAR_DIST
+	var look_at_player := not moved or state == State.STARE or state == State.APPARITION or state == State.PEEK or dist < NEAR_DIST
 	if not look_at_player and _path_i < _path.size():
 		face_target = _path[_path_i]
 	var dir := face_target - global_position
@@ -432,6 +503,110 @@ func _update_visual(delta: float, moved: bool, dist: float) -> void:
 		if _anim.has_animation(want) and _anim.current_animation != want:
 			_anim.play(want, 0.15)
 		if want == "Walk":
-			_anim.speed_scale = 1.6 if state == State.CHASE else 1.0
+			_anim.speed_scale = 1.9 if _enraged_t > 0.0 else (1.6 if state == State.CHASE else 1.0)
 		else:
 			_anim.speed_scale = 1.0
+
+
+# 轉角探頭窺視：找玩家前方附近有牆壁掩護的位置，歪身探出頭盯著玩家
+func _start_peek() -> void:
+	var ppos := _player.global_position
+	var cam: Camera3D = _player.camera
+	var fwd := -cam.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	for i in 10:
+		var p := _snap(ppos + fwd.rotated(Vector3.UP, randf_range(-0.7, 0.7)) * randf_range(10.0, 20.0))
+		if absf(p.y - ppos.y - 0.3) > 1.0 or p.distance_to(ppos) < 8.0:
+			continue
+		if not _clear_line(p + Vector3.UP * 1.6, ppos + Vector3.UP * 1.5):
+			continue
+		# 檢查左右是否有牆壁可以靠著探頭
+		var right := (ppos - p).cross(Vector3.UP).normalized()
+		var wall_r := not _clear_line(p + Vector3.UP * 1.4, p + Vector3.UP * 1.4 + right * 1.3)
+		var wall_l := not _clear_line(p + Vector3.UP * 1.4, p + Vector3.UP * 1.4 - right * 1.3)
+		if wall_r or wall_l:
+			global_position = p
+			_path = PackedVector3Array()
+			state = State.PEEK
+			_peek_lean = -0.48 if wall_r else 0.48
+			_peek_t = 14.0
+			_peek_watch = 0.0
+			_snap_roll = 0.35 if wall_r else -0.35
+			return
+
+
+func _peek(delta: float, dist: float) -> void:
+	_peek_t -= delta
+	if dist < 5.5:
+		_peek_lean = 0.0
+		state = State.CHASE
+		_mood = Mood.RUSH
+		_repath_t = 0.0
+		return
+	if _watched():
+		_peek_watch += delta
+		if _peek_watch > 0.9:
+			_peek_lean = 0.0
+			if randf() < 0.5:
+				state = State.CHASE
+				_mood = Mood.RUSH
+				_repath_t = 0.0
+			else:
+				_vanish()
+			return
+	elif _peek_t <= 0.0:
+		_peek_lean = 0.0
+		_vanish()
+
+
+# 手電筒直射臉部：累積超過 1.2 秒會抽搐僵直並短暫暴走追擊
+func _update_flashlight_reaction(delta: float, dist: float) -> void:
+	var light: Light3D = _player.flashlight
+	var lit := light != null and light.visible
+	if lit and dist < 14.0 and _watched() and _stagger_t <= 0.0:
+		_flash_burn += delta
+		if _flash_burn >= 1.2:
+			_flash_burn = 0.0
+			_stagger_t = 0.45
+			_enraged_t = 4.5
+			_peek_lean = 0.0
+			_snap_roll = [-1.15, 1.15].pick_random()
+			if _snap_sfx:
+				_snap_sfx.pitch_scale = 0.35
+				_snap_sfx.play()
+			state = State.CHASE
+			_mood = Mood.RUSH
+			_repath_t = 0.0
+	else:
+		_flash_burn = maxf(0.0, _flash_burn - delta * 0.5)
+
+
+# 站著不動時偶爾「咔」一聲歪頭折脖子
+func _update_neck_snap(delta: float, moved: bool) -> void:
+	if moved and _stagger_t <= 0.0:
+		_snap_roll = lerpf(_snap_roll, 0.0, minf(delta * 8.0, 1.0))
+		return
+	if state == State.PEEK:
+		return
+	_snap_t -= delta
+	if _snap_t <= 0.0:
+		_snap_t = randf_range(1.6, 3.8)
+		_snap_roll = randf_range(-1.25, 1.25) if absf(_snap_roll) < 0.2 else 0.0
+		if _snap_sfx and global_position.distance_to(_player.global_position) < 18.0:
+			_snap_sfx.pitch_scale = randf_range(0.45, 0.7)
+			_snap_sfx.play()
+
+
+# 埋伏或搜索時在附近黑暗處發出誘餌電流怪聲
+func _update_lure(delta: float, dist: float) -> void:
+	if state != State.AMBUSH and state != State.SEARCH:
+		return
+	_lure_t -= delta
+	if _lure_t > 0.0:
+		return
+	_lure_t = randf_range(12.0, 22.0)
+	if dist > 8.0 and dist < 26.0 and _lure_sfx:
+		_lure_sfx.global_position = _snap(_near(_player.global_position, 8.0, 16.0)) + Vector3.UP * 1.4
+		_lure_sfx.pitch_scale = randf_range(0.55, 0.78)
+		_lure_sfx.play()
