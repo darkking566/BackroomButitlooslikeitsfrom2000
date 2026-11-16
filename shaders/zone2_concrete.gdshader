@@ -9,7 +9,7 @@ uniform float tile_scale : hint_range(0.3, 4.0) = 0.85;
 uniform float noise_strength : hint_range(0.0, 0.3) = 0.07;
 
 uniform float jitter_resolution : hint_range(60.0, 480.0) = 160.0;
-uniform float affine_strength : hint_range(0.0, 1.0) = 0.72;
+uniform float affine_strength : hint_range(0.0, 1.0) = 0.14;
 
 varying vec2 v_uv_persp;
 varying vec2 v_uv_affine;

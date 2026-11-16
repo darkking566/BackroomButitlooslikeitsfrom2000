@@ -6,7 +6,7 @@ uniform vec3 pattern_color : source_color = vec3(0.49, 0.45, 0.25);
 uniform vec3 baseboard_color : source_color = vec3(0.42, 0.39, 0.22);
 
 uniform float jitter_resolution : hint_range(60.0, 480.0) = 160.0;
-uniform float affine_strength : hint_range(0.0, 1.0) = 0.72;
+uniform float affine_strength : hint_range(0.0, 1.0) = 0.18;
 
 varying vec2 v_uv_persp;
 varying vec2 v_uv_affine;

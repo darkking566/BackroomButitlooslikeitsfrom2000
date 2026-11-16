@@ -460,6 +460,9 @@ func _add_box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material, with_c
 	var mi := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = size
+	box.subdivide_width = clampi(int(size.x / 2.2), 0, 10)
+	box.subdivide_height = clampi(int(size.y / 2.2), 0, 6)
+	box.subdivide_depth = clampi(int(size.z / 2.2), 0, 10)
 	mi.mesh = box
 	mi.material_override = mat
 	mi.position = pos
