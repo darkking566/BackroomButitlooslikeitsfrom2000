@@ -22,6 +22,9 @@ var _ambient_hum: AudioStreamPlayer
 var _player: CharacterBody3D
 var _red_loop_count: int = 0
 var _pit_cooldown: float = 0.0
+var _shifting_blocks: Array[Dictionary] = []
+var _flicker_wall_mat: StandardMaterial3D
+var _flicker_time: float = 0.0
 
 var _mat_pale_wall: StandardMaterial3D
 var _mat_thick_carpet: StandardMaterial3D
@@ -95,6 +98,29 @@ func _process(delta: float) -> void:
 
 	if _pit_cooldown > 0.0:
 		_pit_cooldown -= delta
+
+	# Flickering exit wall pulse
+	_flicker_time += delta
+	if _flicker_wall_mat:
+		var pulse := 0.5 + 0.5 * sin(_flicker_time * 13.0) * sin(_flicker_time * 29.0)
+		_flicker_wall_mat.emission_energy_multiplier = 0.35 + pulse * 1.4
+
+	# Edge Displacement: shift Pillar Hall blocks when player looks away & is far enough
+	var cam_fwd := -_player.global_transform.basis.z
+	for blk in _shifting_blocks:
+		blk["cd"] = maxf(0.0, blk["cd"] - delta)
+		if blk["cd"] > 0.0:
+			continue
+		var node: Node3D = blk["node"]
+		var to_blk := (node.global_position - _player.global_position)
+		to_blk.y = 0.0
+		var dist := to_blk.length()
+		if dist > 8.5 and cam_fwd.dot(to_blk.normalized()) < -0.25:
+			var next_pos: Vector3 = blk["pos_b"] if blk["at_a"] else blk["pos_a"]
+			if _player.global_position.distance_to(next_pos) > 7.0:
+				node.position = next_pos
+				blk["at_a"] = not blk["at_a"]
+				blk["cd"] = 12.0
 
 	# Pitfall check inside Pitfalls zone (x: 4..26, z: 34.5..56.5)
 	if _pit_cooldown <= 0.0 and _player.position.y < -2.4:
@@ -219,6 +245,7 @@ func _build_hub(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 		+ "• 往南：紅室前緣（危險！見紅即刻折返）",
 		"res://assets/textures/wiki/level0_og.jpg"
 	)
+	_add_carpet_sample(props, Vector3(-14.0, 0.02, 42.5))
 
 
 # --- Zone A: Arches (img_2 / level0_arches.jpg) ---
@@ -303,6 +330,9 @@ func _build_pillars(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 		+ "多虧有杏仁水，沒有它，真不知該怎麼熬下來……」",
 		"res://assets/textures/wiki/level0_pillars.jpg"
 	)
+	_add_almond_water(props, "AlmondWater_Pillars", Vector3(-24.2, 0.0, 62.0))
+	_add_shifting_pillar(body, Vector3(-28.4, WALL_H * 0.5, 58.1), Vector3(-28.4, WALL_H * 0.5, 60.7))
+	_add_shifting_pillar(body, Vector3(-18.0, WALL_H * 0.5, 63.3), Vector3(-15.4, WALL_H * 0.5, 63.3))
 
 
 # --- Zone C: Pitfalls (img_4 / level0_pitfalls.webp) ---
@@ -392,6 +422,7 @@ func _build_blackout(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 		+ "「……那些破灯煩人歸煩人，可真要沒了，你反倒會想念它們。」",
 		"res://assets/textures/wiki/level0_blackout.jpg"
 	)
+	_add_flickering_exit_wall(props, Vector3(23.5, WALL_H * 0.5, 80.42))
 
 
 # --- Zone E: Red Rooms (img_6 / level0_redroom.webp) ---
@@ -569,3 +600,119 @@ func _add_zone_trigger(t_name: String, pos: Vector3, sz: Vector3, zone_id: Strin
 		if b == _player and _active_zone == zone_id:
 			_set_active_zone("")
 	)
+
+
+func _add_shifting_pillar(parent: Node3D, pos_a: Vector3, pos_b: Vector3) -> void:
+	var sb := StaticBody3D.new()
+	sb.position = pos_a
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.5, WALL_H, 1.5)
+	mi.mesh = bm
+	mi.material_override = MAT_WALLPAPER
+	sb.add_child(mi)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = bm.size
+	cs.shape = bs
+	sb.add_child(cs)
+	parent.add_child(sb)
+	_shifting_blocks.append({"node": sb, "pos_a": pos_a, "pos_b": pos_b, "at_a": true, "cd": 0.0})
+
+
+func _add_almond_water(props: Node3D, node_name: String, pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.name = node_name
+	body.position = pos
+	body.set_script(INTERACT_SCRIPT)
+	body.set("prompt_text", "拾取並檢視「杏仁水」")
+	body.set("interaction_type", "note")
+	body.set("file_name", "杏仁水")
+	body.set("body_text",
+		"【物資：杏仁水 (Almond Water)】\n\n"
+		+ "散發著微弱甜香的瓶裝液體，是在 Level 0 熬過長期迷失與脫水的救命物資。\n"
+		+ "（注意：切勿飲用地毯裡擠出的受污染液體！）"
+	)
+	props.add_child(body)
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.55, 0.82, 0.88)
+	mat.roughness = 0.25
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.06
+	cm.bottom_radius = 0.065
+	cm.height = 0.24
+	mi.mesh = cm
+	mi.material_override = mat
+	mi.position = Vector3(0.0, 0.12, 0.0)
+	body.add_child(mi)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(0.35, 0.4, 0.35)
+	col.shape = shape
+	col.position = Vector3(0.0, 0.2, 0.0)
+	body.add_child(col)
+
+
+func _add_carpet_sample(props: Node3D, pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.name = "DampCarpetSpot"
+	body.position = pos
+	body.set_script(INTERACT_SCRIPT)
+	body.set("prompt_text", "檢查潮濕的地毯")
+	body.set("interaction_type", "note")
+	body.set("file_name", "潮濕的柏柏爾地毯")
+	body.set("body_text",
+		"【地毯樣本觀察】\n"
+		+ "整層樓由一張無縫柏柏爾地毯鋪成，滲有鹽水、杏仁水、液態痛苦與福馬林。\n\n"
+		+ "「想想看，好不容易從『黃色地獄』撿回一條命，結果卻死於什麼不明不白的地毯病，"
+		+ "或是被纖維堵了腸子。拜託了，別吃地毯……」"
+	)
+	props.add_child(body)
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.34, 0.29, 0.17)
+	mat.roughness = 0.95
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.1, 0.02, 1.1)
+	mi.mesh = bm
+	mi.material_override = mat
+	body.add_child(mi)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(1.1, 0.2, 1.1)
+	col.shape = shape
+	body.add_child(col)
+
+
+func _add_flickering_exit_wall(props: Node3D, pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.name = "FlickeringWallExit"
+	body.position = pos
+	body.set_script(INTERACT_SCRIPT)
+	body.set("prompt_text", "投入閃爍的牆壁（切出至 Level 1）")
+	body.set("interaction_type", "level1_exit")
+	props.add_child(body)
+
+	_flicker_wall_mat = StandardMaterial3D.new()
+	_flicker_wall_mat.albedo_color = Color(0.75, 0.78, 0.65)
+	_flicker_wall_mat.emission_enabled = true
+	_flicker_wall_mat.emission = Color(0.85, 0.92, 0.72)
+	_flicker_wall_mat.emission_energy_multiplier = 0.8
+
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(2.4, 2.8, 0.14)
+	mi.mesh = bm
+	mi.material_override = _flicker_wall_mat
+	body.add_child(mi)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(2.4, 2.8, 0.3)
+	col.shape = shape
+	body.add_child(col)

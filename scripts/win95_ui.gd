@@ -182,6 +182,24 @@ func show_exit_dialog(found_pc: bool, elapsed_sec: float) -> void:
 	_task_label.text = " System Alert - Gate 0.5"
 
 
+func show_level1_exit(elapsed_sec: float) -> void:
+	_is_open = true
+	_prompt_panel.visible = false
+	_overlay.visible = true
+	_explorer_group.visible = false
+	_note_group.visible = false
+	_exit_dialog.visible = true
+
+	var mins := int(elapsed_sec) / 60
+	var secs := int(elapsed_sec) % 60
+	_exit_body.text = (
+		"你縱身投入了閃爍的牆壁，成功切出 Level 0！\n"
+		+ "（存活時間：%02d 分 %02d 秒）\n\n" % [mins, secs]
+		+ "「既然你走到了這一步，便意味著你已跨過了那道閾界——歡迎來到後室（Level 1）。」"
+	)
+	_task_label.text = " Noclip Detected - Level 1"
+
+
 func close_popup() -> void:
 	if not _is_open:
 		return

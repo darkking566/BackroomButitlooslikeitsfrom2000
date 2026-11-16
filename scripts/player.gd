@@ -73,6 +73,8 @@ func open_prop_ui(prop: Node) -> void:
 	var img_path: String = img_val if img_val is String else ""
 	if kind == "exit_door":
 		_win95_ui.show_exit_dialog(_found_pc_clue, _elapsed_time)
+	elif kind == "level1_exit":
+		_win95_ui.show_level1_exit(_elapsed_time)
 	elif kind == "wiki_archive":
 		_found_pc_clue = true
 		_win95_ui.show_wiki_archive()
