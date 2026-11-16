@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+const Level0WikiData := preload("res://scripts/level0_wiki_data.gd")
+
 signal window_closed
 signal restart_requested
 
@@ -25,11 +27,13 @@ var _clock_label: Label
 var _overlay: Control
 var _explorer_group: Control
 var _left_title_label: Label
-var _file_btn: Button
+var _file_list: VBoxContainer
 var _right_title_label: Label
+var _doc_image: TextureRect
 var _doc_text: RichTextLabel
 
 var _note_group: Control
+var _note_image: TextureRect
 var _note_body: RichTextLabel
 
 var _exit_dialog: PanelContainer
@@ -57,7 +61,7 @@ func set_prompt(text: String) -> void:
 		_prompt_panel.visible = true
 
 
-func show_explorer(title: String, file_name: String, file_size: String, doc_title: String, doc_body: String) -> void:
+func show_explorer(title: String, file_name: String, file_size: String, doc_title: String, doc_body: String, image_path: String = "") -> void:
 	_is_open = true
 	_prompt_panel.visible = false
 	_overlay.visible = true
@@ -66,13 +70,87 @@ func show_explorer(title: String, file_name: String, file_size: String, doc_titl
 	_exit_dialog.visible = false
 
 	_left_title_label.text = " " + title
-	_file_btn.text = " [磁片]  %-16s %s" % [file_name, file_size]
-	_right_title_label.text = " " + doc_title
-	_doc_text.text = doc_body
+	_clear_file_list()
+	_add_file_item(" [磁片]  %-16s %s" % [file_name, file_size], func() -> void:
+		_set_document(doc_title, doc_body, image_path)
+	, true)
+	_set_document(doc_title, doc_body, image_path)
 	_task_label.text = " " + title
 
 
-func show_note(_note_title: String, note_body: String) -> void:
+func show_wiki_archive() -> void:
+	_is_open = true
+	_prompt_panel.visible = false
+	_overlay.visible = true
+	_explorer_group.visible = true
+	_note_group.visible = false
+	_exit_dialog.visible = false
+
+	var win_title := "M.E.G. Archive - Level 0 (Wiki)"
+	_left_title_label.text = " " + win_title
+	_clear_file_list()
+
+	for i in Level0WikiData.ENTRIES.size():
+		var entry: Dictionary = Level0WikiData.ENTRIES[i]
+		var label_txt := " [檔]  %-20s %s" % [entry["file"], entry["size"]]
+		var captured_entry := entry
+		_add_file_item(label_txt, func() -> void:
+			_set_document(captured_entry["title"], captured_entry["body"], captured_entry["image"])
+		, i == 0)
+
+	if not Level0WikiData.ENTRIES.is_empty():
+		var first: Dictionary = Level0WikiData.ENTRIES[0]
+		_set_document(first["title"], first["body"], first["image"])
+	_task_label.text = " " + win_title
+
+
+func _clear_file_list() -> void:
+	for child in _file_list.get_children():
+		child.queue_free()
+
+
+func _add_file_item(label_txt: String, on_press: Callable, grab_focus: bool) -> void:
+	var btn := Button.new()
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.flat = false
+	btn.text = label_txt
+	btn.add_theme_color_override("font_color", Color.BLACK)
+	btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	btn.add_theme_color_override("font_pressed_color", Color.WHITE)
+	btn.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
+	btn.add_theme_color_override("font_focus_color", Color.WHITE)
+	btn.add_theme_stylebox_override("normal", _make_solid_box(COL_LIGHT))
+	btn.add_theme_stylebox_override("hover", _make_solid_box(COL_NAVY))
+	btn.add_theme_stylebox_override("pressed", _make_solid_box(COL_NAVY))
+	btn.add_theme_stylebox_override("focus", _make_solid_box(COL_NAVY))
+	btn.add_theme_font_size_override("font_size", 13)
+	btn.pressed.connect(on_press)
+	_file_list.add_child(btn)
+	if grab_focus:
+		btn.grab_focus()
+
+
+func _set_document(doc_title: String, doc_body: String, image_path: String) -> void:
+	_right_title_label.text = " " + doc_title
+	_doc_text.text = doc_body
+	_apply_texture(_doc_image, image_path)
+
+
+func _apply_texture(rect: TextureRect, image_path: String) -> void:
+	if image_path.is_empty() or not ResourceLoader.exists(image_path):
+		rect.texture = null
+		rect.visible = false
+		return
+	var tex := load(image_path) as Texture2D
+	if tex:
+		rect.texture = tex
+		rect.visible = true
+	else:
+		rect.texture = null
+		rect.visible = false
+
+
+func show_note(_note_title: String, note_body: String, image_path: String = "") -> void:
 	_is_open = true
 	_prompt_panel.visible = false
 	_overlay.visible = true
@@ -80,6 +158,7 @@ func show_note(_note_title: String, note_body: String) -> void:
 	_note_group.visible = true
 	_exit_dialog.visible = false
 
+	_apply_texture(_note_image, image_path)
 	_note_body.text = note_body
 
 
@@ -231,25 +310,16 @@ func _build_overlay() -> void:
 	left_white.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left_content.add_child(left_white)
 
-	var file_list := VBoxContainer.new()
-	left_white.add_child(file_list)
+	var left_scroll := ScrollContainer.new()
+	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_white.add_child(left_scroll)
 
-	_file_btn = Button.new()
-	_file_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_file_btn.flat = false
-	_file_btn.add_theme_color_override("font_color", Color.BLACK)
-	_file_btn.add_theme_color_override("font_hover_color", Color.WHITE)
-	_file_btn.add_theme_color_override("font_pressed_color", Color.WHITE)
-	_file_btn.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
-	_file_btn.add_theme_color_override("font_focus_color", Color.WHITE)
-	_file_btn.add_theme_stylebox_override("normal", _make_solid_box(COL_LIGHT))
-	_file_btn.add_theme_stylebox_override("hover", _make_solid_box(COL_NAVY))
-	_file_btn.add_theme_stylebox_override("pressed", _make_solid_box(COL_NAVY))
-	_file_btn.add_theme_stylebox_override("focus", _make_solid_box(COL_NAVY))
-	_file_btn.add_theme_font_size_override("font_size", 14)
-	file_list.add_child(_file_btn)
+	_file_list = VBoxContainer.new()
+	_file_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_scroll.add_child(_file_list)
 
-	var right_win := _create_win95_window(Vector2(380, 420), "Document")
+	var right_win := _create_win95_window(Vector2(440, 480), "Document")
 	pair.add_child(right_win["frame"])
 	_right_title_label = right_win["title_label"]
 	var right_content: VBoxContainer = right_win["content"]
@@ -266,11 +336,23 @@ func _build_overlay() -> void:
 	doc_pad.add_theme_constant_override("margin_bottom", 10)
 	right_white.add_child(doc_pad)
 
+	var doc_vbox := VBoxContainer.new()
+	doc_vbox.add_theme_constant_override("separation", 8)
+	doc_pad.add_child(doc_vbox)
+
+	_doc_image = TextureRect.new()
+	_doc_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_doc_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_doc_image.custom_minimum_size = Vector2(0, 175)
+	_doc_image.visible = false
+	doc_vbox.add_child(_doc_image)
+
 	_doc_text = RichTextLabel.new()
 	_doc_text.fit_content = false
+	_doc_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_doc_text.add_theme_color_override("default_color", Color.BLACK)
-	_doc_text.add_theme_font_size_override("normal_font_size", 15)
-	doc_pad.add_child(_doc_text)
+	_doc_text.add_theme_font_size_override("normal_font_size", 14)
+	doc_vbox.add_child(_doc_text)
 
 	var close_hint := Label.new()
 	close_hint.text = "按 [ E ] / [ Esc ] 或右上角 [ X ] 關閉視窗"
@@ -290,7 +372,7 @@ func _build_overlay() -> void:
 	_note_group.add_child(note_vbox)
 
 	var paper_panel := PanelContainer.new()
-	paper_panel.custom_minimum_size = Vector2(400, 340)
+	paper_panel.custom_minimum_size = Vector2(440, 380)
 	var paper_style := StyleBoxFlat.new()
 	paper_style.bg_color = COL_PAPER
 	paper_style.border_width_left = 2
@@ -305,11 +387,23 @@ func _build_overlay() -> void:
 	paper_panel.add_theme_stylebox_override("panel", paper_style)
 	note_vbox.add_child(paper_panel)
 
+	var note_inner := VBoxContainer.new()
+	note_inner.add_theme_constant_override("separation", 10)
+	paper_panel.add_child(note_inner)
+
+	_note_image = TextureRect.new()
+	_note_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_note_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_note_image.custom_minimum_size = Vector2(0, 170)
+	_note_image.visible = false
+	note_inner.add_child(_note_image)
+
 	_note_body = RichTextLabel.new()
 	_note_body.fit_content = false
+	_note_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_note_body.add_theme_color_override("default_color", COL_INK)
 	_note_body.add_theme_font_size_override("normal_font_size", 16)
-	paper_panel.add_child(_note_body)
+	note_inner.add_child(_note_body)
 
 	var note_btn_wrap := CenterContainer.new()
 	note_vbox.add_child(note_btn_wrap)

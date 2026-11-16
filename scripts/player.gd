@@ -69,10 +69,15 @@ func open_prop_ui(prop: Node) -> void:
 		return
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	var kind: String = prop.get("interaction_type")
+	var img_val = prop.get("image_path")
+	var img_path: String = img_val if img_val is String else ""
 	if kind == "exit_door":
 		_win95_ui.show_exit_dialog(_found_pc_clue, _elapsed_time)
+	elif kind == "wiki_archive":
+		_found_pc_clue = true
+		_win95_ui.show_wiki_archive()
 	elif kind == "note":
-		_win95_ui.show_note(prop.get("file_name"), prop.get("body_text"))
+		_win95_ui.show_note(prop.get("file_name"), prop.get("body_text"), img_path)
 	else:
 		_found_pc_clue = true
 		_win95_ui.show_explorer(
@@ -80,7 +85,8 @@ func open_prop_ui(prop: Node) -> void:
 			prop.get("file_name"),
 			prop.get("file_size"),
 			prop.get("file_name") + " - Notepad",
-			prop.get("body_text")
+			prop.get("body_text"),
+			img_path
 		)
 
 
