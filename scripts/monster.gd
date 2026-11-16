@@ -4,12 +4,14 @@ extends Node3D
 # 狀態：巡邏 → 調查（聽到）→ 凝視（遠遠看到）→ 追擊 → 搜索（跟丟）→ 折返 / 埋伏 / 回巡邏。
 # 每次追擊開始時隨機抽一種「追法」：直衝攔截、被看就不動、繞到背後。
 
-enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH }
+enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH, APPARITION }
 enum Mood { RUSH, STALK, FLANK }
 
 const HEAT_CELL := 4.0     # 熱度表格子邊長（公尺）
 const NEAR_DIST := 6.0     # 進到這個距離換成近距離臉
 const LIGHT_KILL_DIST := 7.0  # 牠周圍這個距離內的燈會熄掉
+const LIGHT_FLICKER_DIST := 15.0  # 這個距離內的燈開始亂閃，預告牠快到了
+const DREAD_DIST := 15.0   # 這個距離內畫面開始劣化（穿牆也算：你「感覺」得到牠）
 const MAX_CHASE_SPEED := 4.9  # 越追越快的上限，必須低於玩家跑速 5.0
 
 @export var walk_frames: Array[Texture2D] = []  # 正式美術放這裡；留空就用程式畫的佔位圖
@@ -49,6 +51,14 @@ var _heat_t := 0.0
 var _lights: Array[Node] = []
 var _dimmed: Array[Node] = []  # 被牠弄熄的燈，離開後要點回來
 var _light_t := 0.0
+var _event_t := 60.0     # 巡邏中每 45–90 秒觸發一次「靈異事件」
+var _app_t := 0.0        # 幻影最多停留的秒數
+var _app_watch := 0.0    # 幻影被你盯著的累計秒數
+var _echo: AudioStreamPlayer3D
+var _echo_left := 0      # 回聲腳步還剩幾步
+var _echo_t := 0.0
+var _post_mat: ShaderMaterial
+var _post_base := {}
 
 
 func _ready() -> void:
@@ -64,6 +74,15 @@ func _ready() -> void:
 	_steps.pitch_scale = 0.55  # 比玩家腳步低沉
 	_steps.max_distance = 24.0
 	add_child(_steps)
+	_echo = AudioStreamPlayer3D.new()
+	_echo.stream = _steps.stream  # 和玩家同一種地毯腳步，聽起來像你自己的
+	_echo.top_level = true        # 位置跟著玩家背後，不跟怪物
+	add_child(_echo)
+	var filter := get_parent().get_node_or_null("PS2PostLayer/PS2Filter")
+	if filter and filter.material is ShaderMaterial:
+		_post_mat = filter.material
+		for p in ["pixel_size", "color_levels", "vignette_strength"]:
+			_post_base[p] = _post_mat.get_shader_parameter(p)
 	_bake_navmesh.call_deferred()  # 等各區域腳本把幾何體生成完
 
 
@@ -94,9 +113,17 @@ func _physics_process(delta: float) -> void:
 		_anim_t += delta  # 站著不動時畫面也定格
 	_light_t -= delta
 	if _light_t <= 0.0:
-		_light_t = 0.3
+		_light_t = 0.12
 		_update_lights()
-	var near := global_position.distance_to(_player.global_position) < NEAR_DIST
+	_update_echo(delta)
+	var dist := global_position.distance_to(_player.global_position)
+	if _post_mat:
+		# 越近畫面越碎：像素變大、色階變少、四周變暗
+		var k := clampf(1.0 - dist / DREAD_DIST, 0.0, 1.0)
+		_post_mat.set_shader_parameter("pixel_size", lerpf(_post_base["pixel_size"], 5.0, k))
+		_post_mat.set_shader_parameter("color_levels", lerpf(_post_base["color_levels"], 9.0, k))
+		_post_mat.set_shader_parameter("vignette_strength", lerpf(_post_base["vignette_strength"], 0.5, k))
+	var near := dist < NEAR_DIST
 	# 每秒只換 5 張，動作刻意抽搐
 	_sprite.texture = near_texture if near and near_texture else walk_frames[int(_anim_t * 5.0) % walk_frames.size()]
 
@@ -114,6 +141,9 @@ func _think(delta: float) -> void:
 
 	_repath_t -= delta
 	_sees = _sees_player()
+	if state == State.APPARITION:
+		_haunt(delta, dist)
+		return
 	if _sees:
 		_last_seen = ppos
 		if state == State.AMBUSH:
@@ -150,6 +180,13 @@ func _think(delta: float) -> void:
 	if state == State.STARE:
 		state = State.CHASE  # 凝視途中你躲開了：牠走去剛才看到你的地方
 		_go_to(ppos)
+	_event_t -= delta
+	if state == State.PATROL and _event_t <= 0.0:
+		_event_t = randf_range(45.0, 90.0)
+		match randi() % 3:
+			0: _appear(true)
+			1: _appear(false)
+			2: _echo_left = randi_range(6, 12)
 	if state != State.CHASE and state != State.AMBUSH and _repath_t <= 0.0 and _hears_player(dist):
 		_repath_t = 1.0
 		state = State.INVESTIGATE
@@ -199,9 +236,81 @@ func _sees_player() -> bool:
 	var lit := light != null and light.visible
 	if eye.distance_to(head) > (sight_range_flashlight if lit else sight_range_dark):
 		return false
-	var query := PhysicsRayQueryParameters3D.create(eye, head)
+	return _clear_line(eye, head)
+
+
+func _clear_line(from: Vector3, to: Vector3) -> bool:
+	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [_player.get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+
+
+func _snap(p: Vector3) -> Vector3:
+	return NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, p)
+
+
+# 幻影：瞬移到你背後（轉身才看得到）或前方霧裡（直接站在視線盡頭）
+func _appear(behind: bool) -> void:
+	var ppos := _player.global_position
+	var cam: Camera3D = _player.camera
+	var fwd := -cam.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() * (-1.0 if behind else 1.0)
+	for i in 10:
+		var p := _snap(ppos + fwd.rotated(Vector3.UP, randf_range(-0.5, 0.5)) * (randf_range(7.0, 10.0) if behind else randf_range(12.0, 22.0)))
+		var d := p.distance_to(ppos)
+		if absf(p.y - ppos.y - 0.3) < 1.0 and d > 6.5 and _clear_line(p + Vector3.UP * 1.6, ppos + Vector3.UP * 1.5):
+			global_position = p
+			_path = PackedVector3Array()
+			state = State.APPARITION
+			_app_t = 20.0
+			_app_watch = 0.0
+			return
+
+
+# 幻影不追你：被你盯滿 0.6 秒後，你一移開視線牠就不見；你走到 5 公尺內牠才真的撲過來
+func _haunt(delta: float, dist: float) -> void:
+	_app_t -= delta
+	if dist < 5.0:
+		state = State.CHASE
+		_mood = Mood.RUSH
+		_repath_t = 0.0
+	elif _watched():
+		_app_watch += delta
+	elif _app_watch > 0.6 or _app_t <= 0.0:
+		_vanish()
+
+
+func _vanish() -> void:
+	var ppos := _player.global_position
+	var spot := _home
+	for i in 10:
+		var p := _snap(_near(ppos, 30.0, 50.0))
+		if p.distance_to(ppos) > 25.0:
+			spot = p
+			break
+	global_position = spot
+	_path = PackedVector3Array()
+	state = State.PATROL
+
+
+# 回聲腳步：你走路時，背後 3.5 公尺跟著響和你同節奏的腳步；你一停它就停
+func _update_echo(delta: float) -> void:
+	if _echo_left <= 0:
+		return
+	var speed := Vector2(_player.velocity.x, _player.velocity.z).length()
+	if speed < 0.5:
+		_echo_t = 0.25  # 你停下後，它會慢半拍才跟上
+		return
+	_echo_t -= delta
+	if _echo_t > 0.0:
+		return
+	_echo_t = TAU / (_player.bob_frequency * speed)  # 和玩家自己的腳步同一個節奏公式
+	var back := _player.global_transform.basis.z
+	_echo.global_position = _player.global_position + back * 3.5 + Vector3.UP * 0.2
+	_echo.pitch_scale = randf_range(0.85, 1.05)
+	_echo.play()
+	_echo_left -= 1
 
 
 # 玩家的鏡頭正對著牠，而且中間沒有牆
@@ -272,11 +381,12 @@ func _move(delta: float) -> bool:
 # shortcut: 只記錄「牠弄熄的燈」再點回來；若異常燈剛好在牠身邊被觸發熄滅，牠離開後會被誤點亮。要根治得讓異常燈自己標記已熄。
 func _update_lights() -> void:
 	for light in _lights:
-		var close: bool = light.global_position.distance_to(global_position) < LIGHT_KILL_DIST
-		if close and light.visible:
+		var d: float = light.global_position.distance_to(global_position)
+		var off := d < LIGHT_KILL_DIST or (d < LIGHT_FLICKER_DIST and randf() < 0.35)
+		if off and light.visible:
 			light.visible = false
 			_dimmed.append(light)
-		elif not close and light in _dimmed:
+		elif not off and light in _dimmed:
 			light.visible = true
 			_dimmed.erase(light)
 
@@ -285,6 +395,7 @@ func _reset() -> void:
 	global_position = _home
 	_path = PackedVector3Array()
 	_path_i = 0
+	_echo_left = 0
 	state = State.PATROL
 
 
