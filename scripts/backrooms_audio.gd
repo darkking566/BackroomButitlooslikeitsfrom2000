@@ -75,3 +75,33 @@ static func create_carpet_footstep_stream() -> AudioStreamWAV:
 	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
 	wav.data = bytes
 	return wav
+
+
+static func create_light_pop_stream() -> AudioStreamWAV:
+	var mix_rate := 22050
+	var duration_sec := 0.24
+	var sample_count := int(mix_rate * duration_sec)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7711
+	var lp := 0.0
+
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		# Sharp electrical pop + short 120Hz buzz decay
+		var pop := sin(TAU * 180.0 * t) * exp(-t * 45.0)
+		var buzz := sin(TAU * 120.0 * t) * exp(-t * 16.0) * 0.4
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.35)
+		var spark := lp * exp(-t * 28.0) * 0.75
+		var sample := clampf(pop + buzz + spark, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = mix_rate
+	wav.stereo = false
+	wav.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	wav.data = bytes
+	return wav
