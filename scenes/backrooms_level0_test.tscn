@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://ceyk3g4jt7q3t" path="res://scenes/player.tscn" id="5_h3ida"]
 [ext_resource type="Material" uid="uid://cixaxdbgv3kbd" path="res://materials/mat_ps2_post.tres" id="6_aglw0"]
 [ext_resource type="PackedScene" uid="uid://br02pou41eux7" path="res://assets/models/exit_sign.glb" id="7_xyem5"]
+[ext_resource type="Script" path="res://scripts/level0_annex.gd" id="8_xyem5"]
 [ext_resource type="Script" uid="uid://gms3y0yeqn4p" path="res://scripts/win95_ui.gd" id="9_h3ida"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_w3b4y"]
@@ -66,3 +67,7 @@ omni_range = 4.2
 
 [node name="Win95UI" type="CanvasLayer" parent="." unique_id=1313315636]
 script = ExtResource("9_h3ida")
+
+[node name="Level0Annex" type="Node3D" parent="." unique_id=1415139137]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -59.8, 0, 0)
+script = ExtResource("8_xyem5")

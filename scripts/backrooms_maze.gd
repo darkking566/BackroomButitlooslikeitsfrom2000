@@ -19,7 +19,7 @@ const INTERACT_SCRIPT := preload("res://scripts/interactable_prop.gd")
 # '#' = wall, '.' = open floor, 'P' = spawn (2,19), 'C' = pillar
 # 'L' = steady fluorescent light, 'D' = dim flickering light
 # 'A' = anomaly light (snaps OFF with electrical pop when approached)
-# Note: row 15 col 24 opens Eastward into Zone 2
+# Note: row 15 col 24 opens Eastward into Zone 2; row 19 col 0 opens Westward into Level0Annex
 const MAZE_MAP: PackedStringArray = [
 	"#########################",
 	"#L........#..D......#..D#",
@@ -40,7 +40,7 @@ const MAZE_MAP: PackedStringArray = [
 	"#.#.......#.#..#.####.#.#",
 	"#.#..L....#.#..#....#...#",
 	"#.#.......#....#.##.#.###",
-	"#.P..#....####.#..L.#...#",
+	"..P..#....####.#..L.#...#",
 	"#.##.#.#.......#....#.#.#",
 	"#....#.#..###..###.##.#.#",
 	"#.D..#L...#.........#...#",
