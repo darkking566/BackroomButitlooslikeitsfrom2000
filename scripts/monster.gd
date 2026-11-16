@@ -14,8 +14,9 @@ const LIGHT_FLICKER_DIST := 15.0  # 這個距離內的燈開始亂閃，預告�
 const DREAD_DIST := 15.0   # 這個距離內畫面開始劣化（穿牆也算：你「感覺」得到牠）
 const MAX_CHASE_SPEED := 4.9  # 越追越快的上限，必須低於玩家跑速 5.0
 
-@export var walk_frames: Array[Texture2D] = []  # 正式美術放這裡；留空就用程式畫的佔位圖
-@export var near_texture: Texture2D
+const MODEL_PATH := "res://assets/models/monster.glb"
+
+@export var model_scene: PackedScene
 @export var patrol_speed: float = 2.2
 @export var investigate_speed: float = 3.0
 @export var chase_speed: float = 4.4            # 玩家走 3.2、跑 5.0：跑得掉，但跑步很吵
@@ -29,7 +30,8 @@ var state: State = State.PATROL
 var _mood: Mood = Mood.RUSH
 var _player: CharacterBody3D
 var _ui: Node
-var _sprite: Sprite3D
+var _model: Node3D
+var _anim: AnimationPlayer
 var _steps: AudioStreamPlayer3D
 var _home: Vector3
 var _nav_ready := false
@@ -41,7 +43,6 @@ var _search_left := 0
 var _ambush_left := 0
 var _stare_t := 0.0
 var _step_t := 0.0
-var _anim_t := 0.0
 var _sees := false
 var _anger := 0          # 每被甩掉一次 +1，追擊速度跟著變快
 var _last_seen: Vector3
@@ -109,8 +110,7 @@ func _physics_process(delta: float) -> void:
 	if not _nav_ready or (_ui and _ui.is_popup_open()):
 		return  # 玩家讀文件時動不了，怪物也暫停才公平
 	_think(delta)
-	if _move(delta):
-		_anim_t += delta  # 站著不動時畫面也定格
+	var moved := _move(delta)
 	_light_t -= delta
 	if _light_t <= 0.0:
 		_light_t = 0.12
@@ -123,9 +123,7 @@ func _physics_process(delta: float) -> void:
 		_post_mat.set_shader_parameter("pixel_size", lerpf(_post_base["pixel_size"], 5.0, k))
 		_post_mat.set_shader_parameter("color_levels", lerpf(_post_base["color_levels"], 9.0, k))
 		_post_mat.set_shader_parameter("vignette_strength", lerpf(_post_base["vignette_strength"], 0.5, k))
-	var near := dist < NEAR_DIST
-	# 每秒只換 5 張，動作刻意抽搐
-	_sprite.texture = near_texture if near and near_texture else walk_frames[int(_anim_t * 5.0) % walk_frames.size()]
+	_update_visual(delta, moved, dist)
 
 
 func _think(delta: float) -> void:
@@ -400,40 +398,40 @@ func _reset() -> void:
 
 
 func _build_sprite() -> void:
-	if walk_frames.is_empty():
-		walk_frames = [_placeholder(-1.0, false), _placeholder(1.0, false)]
-		near_texture = _placeholder(0.0, true)
-	_sprite = Sprite3D.new()
-	_sprite.texture = walk_frames[0]
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y  # 永遠正臉朝玩家
-	_sprite.shaded = false                                # 不吃燈光，暗處也看得到臉
-	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	_sprite.pixel_size = 2.3 / walk_frames[0].get_height()  # 身高 2.3 公尺
-	_sprite.position.y = 0.85  # 圖高一半 1.15，再扣掉導航路徑浮在地板上方的 0.3
-	add_child(_sprite)
+	var scene_res := model_scene if model_scene else load(MODEL_PATH) as PackedScene
+	if scene_res:
+		_model = scene_res.instantiate()
+		_model.position.y = -0.3  # 扣掉導航路徑浮在地板上方的 0.3 公尺，讓雙腳貼地
+		add_child(_model)
+		var players := _model.find_children("*", "AnimationPlayer", true, false)
+		if not players.is_empty() and players[0] is AnimationPlayer:
+			_anim = players[0]
+			for anim_name in _anim.get_animation_list():
+				var a := _anim.get_animation(anim_name)
+				if a:
+					a.loop_mode = Animation.LOOP_LINEAR
+			if _anim.has_animation("Idle"):
+				_anim.play("Idle")
 
 
-# 佔位圖：黑色人影、拖地長臂、歪脖子、過曝白臉上只有一張嘴。sway 讓手臂左右晃，near 是近距離版（臉和嘴變大）。
-func _placeholder(sway: float, near: bool) -> ImageTexture:
-	var img := Image.create(32, 64, false, Image.FORMAT_RGBA8)
-	var face_c := Vector2(20.0, 11.0)
-	var face_r := Vector2(7.0, 9.0) if near else Vector2(5.0, 7.0)
-	var mouth_r := Vector2(4.0, 5.0) if near else Vector2(2.0, 3.0)
-	var in_ellipse := func(p: Vector2, c: Vector2, r: Vector2) -> bool:
-		return ((p - c) / r).length() < 1.0
-	for y in 64:
-		for x in 32:
-			var p := Vector2(x, y)
-			var arm_dx := sway * (y - 24) / 20.0
-			var body: bool = in_ellipse.call(p, Vector2(16.0, 34.0), Vector2(5.0, 14.0)) \
-				or (y >= 44 and (absf(x - 13.0) < 1.5 or absf(x - 19.0) < 1.5)) \
-				or (y >= 24 and y <= 62 and (absf(x - 8.0 - arm_dx) < 1.2 or absf(x - 24.0 - arm_dx) < 1.2)) \
-				or (y >= 14 and y <= 22 and absf(x - 16.0 - (22 - y) * 0.4) < 1.5)
-			if in_ellipse.call(p, face_c + Vector2(0.0, 3.0), mouth_r):
-				img.set_pixel(x, y, Color(0.03, 0.0, 0.0))
-			elif in_ellipse.call(p, face_c, face_r):
-				img.set_pixel(x, y, Color.WHITE)
-			elif body:
-				img.set_pixel(x, y, Color(0.02, 0.02, 0.02))
-	return ImageTexture.create_from_image(img)
+func _update_visual(delta: float, moved: bool, dist: float) -> void:
+	if not _model:
+		return
+	# 面向：凝視/幻影/近距離時盯著玩家，移動時面向行進方向
+	var face_target := _player.global_position
+	var look_at_player := not moved or state == State.STARE or state == State.APPARITION or dist < NEAR_DIST
+	if not look_at_player and _path_i < _path.size():
+		face_target = _path[_path_i]
+	var dir := face_target - global_position
+	dir.y = 0.0
+	if dir.length_squared() > 0.0001:
+		var target_yaw := atan2(dir.x, dir.z)
+		_model.rotation.y = lerp_angle(_model.rotation.y, target_yaw, minf(delta * 10.0, 1.0))
+	if _anim:
+		var want := "Walk" if moved and _anim.has_animation("Walk") else "Idle"
+		if _anim.has_animation(want) and _anim.current_animation != want:
+			_anim.play(want, 0.15)
+		if want == "Walk":
+			_anim.speed_scale = 1.6 if state == State.CHASE else 1.0
+		else:
+			_anim.speed_scale = 1.0
