@@ -476,6 +476,10 @@ func _add_room_box(body: StaticBody3D, pos: Vector3, sz: Vector3, mat: Material)
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = sz
+	# Subdivide large surfaces (~1m per segment) so PS2 vertex-snap & affine shaders do not warp
+	bm.subdivide_width = clampi(int(sz.x), 0, 48)
+	bm.subdivide_height = clampi(int(sz.y), 0, 8)
+	bm.subdivide_depth = clampi(int(sz.z), 0, 48)
 	mi.mesh = bm
 	mi.material_override = mat
 	mi.position = pos

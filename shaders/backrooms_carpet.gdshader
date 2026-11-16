@@ -2,7 +2,7 @@ shader_type spatial;
 
 uniform vec3 carpet_color : source_color = vec3(0.49, 0.45, 0.26);
 uniform float jitter_resolution : hint_range(60.0, 480.0) = 160.0;
-uniform float affine_strength : hint_range(0.0, 1.0) = 0.12;
+uniform float affine_strength : hint_range(0.0, 1.0) = 0.04;
 
 varying vec2 v_uv_persp;
 varying vec2 v_uv_affine;
