@@ -8,7 +8,8 @@
 [ext_resource type="PackedScene" uid="uid://br02pou41eux7" path="res://assets/models/exit_sign.glb" id="7_xyem5"]
 [ext_resource type="Script" uid="uid://r7ppug2c0dee" path="res://scripts/level0_annex.gd" id="8_xyem5"]
 [ext_resource type="Script" uid="uid://gms3y0yeqn4p" path="res://scripts/win95_ui.gd" id="9_h3ida"]
-[ext_resource type="Script" path="res://scripts/zone3_liminal.gd" id="9_loab8"]
+[ext_resource type="Script" uid="uid://7vhjt58f0xro" path="res://scripts/zone3_liminal.gd" id="9_loab8"]
+[ext_resource type="Script" path="res://scripts/monster.gd" id="10_h3ida"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_w3b4y"]
 
@@ -76,3 +77,7 @@ script = ExtResource("8_xyem5")
 [node name="Zone3Liminal" type="Node3D" parent="." unique_id=1624666872]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51.6, 0, -1.35)
 script = ExtResource("9_loab8")
+
+[node name="Monster" type="Node3D" parent="." unique_id=1019418328]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.8, 0, -23.4)
+script = ExtResource("10_h3ida")
