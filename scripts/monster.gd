@@ -1,12 +1,16 @@
 extends Node3D
 
-# 全程追獵者。啟動時從全場景的靜態碰撞體烘焙導航網格（所有區域與樓梯共用一張），
-# 大腦四個狀態：巡邏 → 調查（聽到）→ 追擊（看到）→ 搜索（跟丟）。
+# 全程追獵者。啟動時從全場景的靜態碰撞體烘焙導航網格（所有區域與樓梯共用一張）。
+# 狀態：巡邏 → 調查（聽到）→ 凝視（遠遠看到）→ 追擊 → 搜索（跟丟）→ 折返 / 埋伏 / 回巡邏。
+# 每次追擊開始時隨機抽一種「追法」：直衝攔截、被看就不動、繞到背後。
 
-enum State { PATROL, INVESTIGATE, CHASE, SEARCH }
+enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH }
+enum Mood { RUSH, STALK, FLANK }
 
-const HEAT_CELL := 4.0   # 熱度表格子邊長（公尺）
-const NEAR_DIST := 6.0   # 進到這個距離換成近距離臉
+const HEAT_CELL := 4.0     # 熱度表格子邊長（公尺）
+const NEAR_DIST := 6.0     # 進到這個距離換成近距離臉
+const LIGHT_KILL_DIST := 7.0  # 牠周圍這個距離內的燈會熄掉
+const MAX_CHASE_SPEED := 4.9  # 越追越快的上限，必須低於玩家跑速 5.0
 
 @export var walk_frames: Array[Texture2D] = []  # 正式美術放這裡；留空就用程式畫的佔位圖
 @export var near_texture: Texture2D
@@ -20,9 +24,11 @@ const NEAR_DIST := 6.0   # 進到這個距離換成近距離臉
 @export var catch_distance: float = 1.1
 
 var state: State = State.PATROL
+var _mood: Mood = Mood.RUSH
 var _player: CharacterBody3D
 var _ui: Node
 var _sprite: Sprite3D
+var _steps: AudioStreamPlayer3D
 var _home: Vector3
 var _nav_ready := false
 var _path := PackedVector3Array()
@@ -30,23 +36,39 @@ var _path_i := 0
 var _repath_t := 0.0
 var _wait_t := 0.0
 var _search_left := 0
+var _ambush_left := 0
+var _stare_t := 0.0
+var _step_t := 0.0
 var _anim_t := 0.0
-var _heat := {}      # Vector3i 格子 -> 玩家待過的次數
-var _heat_pos := {}  # Vector3i 格子 -> 玩家在該格最後的實際位置（保留樓層高度）
+var _sees := false
+var _anger := 0          # 每被甩掉一次 +1，追擊速度跟著變快
+var _last_seen: Vector3
+var _heat := {}          # Vector3i 格子 -> 玩家待過的次數
+var _heat_pos := {}      # Vector3i 格子 -> 玩家在該格最後的實際位置（保留樓層高度）
 var _heat_t := 0.0
+var _lights: Array[Node] = []
+var _dimmed: Array[Node] = []  # 被牠弄熄的燈，離開後要點回來
+var _light_t := 0.0
 
 
 func _ready() -> void:
 	_home = global_position
+	_last_seen = _home
 	_player = get_parent().get_node("Player")
 	_ui = get_parent().get_node_or_null("Win95UI")
 	if _ui:
 		_ui.restart_requested.connect(_reset)
 	_build_sprite()
+	_steps = AudioStreamPlayer3D.new()
+	_steps.stream = BackroomsAudio.create_carpet_footstep_stream()
+	_steps.pitch_scale = 0.55  # 比玩家腳步低沉
+	_steps.max_distance = 24.0
+	add_child(_steps)
 	_bake_navmesh.call_deferred()  # 等各區域腳本把幾何體生成完
 
 
 func _bake_navmesh() -> void:
+	_lights = get_parent().find_children("*", "OmniLight3D", true, false)
 	var nm := NavigationMesh.new()
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	nm.cell_size = 0.25
@@ -68,8 +90,12 @@ func _physics_process(delta: float) -> void:
 	if not _nav_ready or (_ui and _ui.is_popup_open()):
 		return  # 玩家讀文件時動不了，怪物也暫停才公平
 	_think(delta)
-	_move(delta)
-	_anim_t += delta
+	if _move(delta):
+		_anim_t += delta  # 站著不動時畫面也定格
+	_light_t -= delta
+	if _light_t <= 0.0:
+		_light_t = 0.3
+		_update_lights()
 	var near := global_position.distance_to(_player.global_position) < NEAR_DIST
 	# 每秒只換 5 張，動作刻意抽搐
 	_sprite.texture = near_texture if near and near_texture else walk_frames[int(_anim_t * 5.0) % walk_frames.size()]
@@ -87,19 +113,44 @@ func _think(delta: float) -> void:
 		_heat_pos[cell] = ppos
 
 	_repath_t -= delta
-	if _sees_player():
-		state = State.CHASE
+	_sees = _sees_player()
+	if _sees:
+		_last_seen = ppos
+		if state == State.AMBUSH:
+			_mood = Mood.RUSH  # 埋伏被撞見：直接衝出來
+			state = State.CHASE
+			_repath_t = 0.0
+		elif state != State.CHASE and state != State.STARE:
+			_mood = [Mood.RUSH, Mood.STALK, Mood.FLANK].pick_random()
+			state = State.STARE if dist > 10.0 else State.CHASE
+			_stare_t = randf_range(1.2, 2.8)
+			_path = PackedVector3Array()
+			_repath_t = 0.0
+		if state == State.STARE:
+			# 遠遠站著盯你一會兒才動；你自己靠近到 6 公尺內牠就不等了
+			_stare_t -= delta
+			if _stare_t > 0.0 and dist > 6.0:
+				return
+			state = State.CHASE
 		if dist < catch_distance:
 			_player._on_restart_requested()
 			_reset()
 			return
 		if _repath_t <= 0.0:
 			_repath_t = 0.3
-			# 預判攔截：瞄準玩家幾秒後會到的位置，尋路自然繞去堵前方；貼近後才直撲
-			var vel := Vector3(_player.velocity.x, 0.0, _player.velocity.z)
-			_go_to(ppos + vel * clampf(dist / chase_speed, 0.0, 2.5) if dist > 4.0 else ppos)
+			var target := ppos
+			if _mood == Mood.RUSH and dist > 4.0:
+				# 預判攔截：瞄準玩家幾秒後會到的位置，尋路自然繞去堵前方
+				var vel := Vector3(_player.velocity.x, 0.0, _player.velocity.z)
+				target = ppos + vel * clampf(dist / chase_speed, 0.0, 2.5)
+			elif _mood == Mood.FLANK and dist > 8.0:
+				target = ppos + _player.global_transform.basis.z * 6.0  # 玩家背後 6 公尺
+			_go_to(target)
 		return
-	if state != State.CHASE and _repath_t <= 0.0 and _hears_player(dist):
+	if state == State.STARE:
+		state = State.CHASE  # 凝視途中你躲開了：牠走去剛才看到你的地方
+		_go_to(ppos)
+	if state != State.CHASE and state != State.AMBUSH and _repath_t <= 0.0 and _hears_player(dist):
 		_repath_t = 1.0
 		state = State.INVESTIGATE
 		_go_to(_near(ppos, 0.0, 2.0))  # 只聽得出大概方位
@@ -112,15 +163,30 @@ func _think(delta: float) -> void:
 	if _wait_t > 0.0:
 		return
 	_wait_t = 1.0
+	if state == State.AMBUSH:
+		_ambush_left -= 1  # 站著不動、不理聲音，等你自己走進視線
+		if _ambush_left > 0:
+			return
+		state = State.PATROL
+	if state == State.CHASE:
+		_anger += 1
 	if state == State.CHASE or state == State.INVESTIGATE:
 		state = State.SEARCH
 		_search_left = 3
 	if state == State.SEARCH:
 		_search_left -= 1
-		if _search_left < 0:
-			state = State.PATROL
-		else:
+		if _search_left >= 0:
 			_go_to(_hot_spot(global_position, 20.0))  # 搜附近玩家常待的地方
+			return
+		state = State.PATROL
+		var roll := randf()
+		if roll < 0.3:
+			_go_to(_last_seen)  # 假裝放棄，其實折返最後看到你的地方
+			return
+		if roll < 0.6:
+			state = State.AMBUSH  # 去你常待的地方站著等
+			_ambush_left = 30
+			_go_to(_hot_spot(ppos, INF))
 			return
 	# 巡邏：多半去玩家最常待的地方，偶爾直接晃到玩家附近（避免永遠遇不到）
 	_go_to(_hot_spot(ppos, INF) if randf() < 0.6 else _near(ppos, 12.0, 25.0))
@@ -136,6 +202,13 @@ func _sees_player() -> bool:
 	var query := PhysicsRayQueryParameters3D.create(eye, head)
 	query.exclude = [_player.get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+
+
+# 玩家的鏡頭正對著牠，而且中間沒有牆
+func _watched() -> bool:
+	var cam: Camera3D = _player.camera
+	var to_me := (global_position + Vector3.UP * 1.2 - cam.global_position).normalized()
+	return _sees and (-cam.global_transform.basis.z).dot(to_me) > 0.75
 
 
 func _hears_player(dist: float) -> bool:
@@ -173,13 +246,39 @@ func _go_to(target: Vector3) -> void:
 	_path_i = 0
 
 
-func _move(delta: float) -> void:
+# 回傳這一幀有沒有真的移動
+func _move(delta: float) -> bool:
 	if _path_i >= _path.size():
-		return
-	var speed := chase_speed if state == State.CHASE else (patrol_speed if state == State.PATROL else investigate_speed)
+		return false
+	var stalking := state == State.CHASE and _mood == Mood.STALK
+	if stalking and _watched():
+		return false  # 你盯著牠時牠一動也不動
+	var speed := patrol_speed
+	if state == State.CHASE:
+		speed = minf(chase_speed + 0.1 * _anger, MAX_CHASE_SPEED)
+	elif state != State.PATROL:
+		speed = investigate_speed
 	global_position = global_position.move_toward(_path[_path_i], speed * delta)
 	if global_position.distance_to(_path[_path_i]) < 0.05:
 		_path_i += 1
+	# 腳步聲：走越快越密；尾隨和前往埋伏點時完全無聲
+	_step_t -= delta
+	if _step_t <= 0.0 and not stalking and state != State.AMBUSH:
+		_step_t = 1.4 / speed
+		_steps.play()
+	return true
+
+
+# shortcut: 只記錄「牠弄熄的燈」再點回來；若異常燈剛好在牠身邊被觸發熄滅，牠離開後會被誤點亮。要根治得讓異常燈自己標記已熄。
+func _update_lights() -> void:
+	for light in _lights:
+		var close: bool = light.global_position.distance_to(global_position) < LIGHT_KILL_DIST
+		if close and light.visible:
+			light.visible = false
+			_dimmed.append(light)
+		elif not close and light in _dimmed:
+			light.visible = true
+			_dimmed.erase(light)
 
 
 func _reset() -> void:
