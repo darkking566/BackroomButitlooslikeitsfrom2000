@@ -239,7 +239,16 @@ func _build_stair_threshold(body: StaticBody3D, lights: Node3D, props: Node3D) -
 
 	# Floor & Ceiling
 	_add_box(body, Vector3(28.0, 0.2, 25.0), Vector3(0.0, -0.1, -49.7), mat_floor, true)
-	_add_box(body, Vector3(28.0, 0.2, 25.0), Vector3(0.0, 3.9, -49.7), mat_wall, true)
+	# Ceiling is split to leave a stairwell opening (x: -4.3 .. -1.3, z: -62.2 .. -58.0);
+	# a single slab left only 0.86m of headroom at the top step.
+	_add_box(body, Vector3(28.0, 0.2, 20.8), Vector3(0.0, 3.9, -47.6), mat_wall, true)
+	_add_box(body, Vector3(9.7, 0.2, 4.2), Vector3(-9.15, 3.9, -60.1), mat_wall, true)
+	_add_box(body, Vector3(15.3, 0.2, 4.2), Vector3(6.35, 3.9, -60.1), mat_wall, true)
+	# Shaft walls + cap closing the opening up to the upper corridor ceiling (y = 5.94)
+	_add_box(body, Vector3(0.2, 2.24, 4.2), Vector3(-4.4, 4.92, -60.1), mat_wall, true)
+	_add_box(body, Vector3(0.2, 2.24, 4.2), Vector3(-1.2, 4.92, -60.1), mat_wall, true)
+	_add_box(body, Vector3(3.4, 2.24, 0.2), Vector3(-2.8, 4.92, -57.9), mat_wall, true)
+	_add_box(body, Vector3(3.4, 0.2, 4.4), Vector3(-2.8, 6.04, -60.0), mat_wall, true)
 
 	# South wall (z = -37.2) connecting to glowing green doorway (x: -1.45 .. +1.45)
 	_add_box(body, Vector3(12.55, 3.8, 0.3), Vector3(-7.725, 1.9, -37.2), mat_wall, true)
