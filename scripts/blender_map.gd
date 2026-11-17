@@ -269,13 +269,7 @@ func _proc_tex(kind: String) -> ImageTexture:
 	return t
 
 
-# 本機有 HL2 原版貼圖就用（assets/models/hl2_local/<材質名>.png，由 GMod 的 VPK 抽出；版權屬 Valve，已列入 .gitignore，不隨專案發布）
-func _local_tex(nm: String) -> ImageTexture:
-	var path := "res://assets/models/hl2_local/%s.png" % nm
-	if not FileAccess.file_exists(path):
-		return null
-	var img := Image.load_from_file(path)
-	if img == null:
-		return null
-	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
+# 自製貼圖（tools/map_textures/gen.py 生成，原創圖樣）：assets/textures/map_fill/<材質名>.png
+func _local_tex(nm: String) -> Texture2D:
+	var path := "res://assets/textures/map_fill/%s.png" % nm
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null

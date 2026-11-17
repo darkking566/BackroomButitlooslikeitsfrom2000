@@ -1,6 +1,3 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
-
-# HL2 原版貼圖（Valve 版權，本機從 GMod VPK 抽出，不進版控）
-assets/models/hl2_local/
