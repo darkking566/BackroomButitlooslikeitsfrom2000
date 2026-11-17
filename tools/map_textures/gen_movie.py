@@ -190,6 +190,10 @@ def main():
         img = build(n, avg)
         if img.shape[2] == 3:
             img = np.dstack([img, np.ones((N, N))])
+        if not any(k in n.upper() for k in ('LIGHT', 'FLU', '75OFF')):  # 配合遊戲的昏暗風格：降飽和、壓暗
+            rgb = img[:, :, :3]
+            g = rgb.mean(2, keepdims=True)
+            img[:, :, :3] = (g + (rgb - g) * 0.6) * 0.78
         Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8), 'RGBA').save(os.path.join(OUT, n + '.png'))
         cnt += 1
     print(cnt, 'textures ->', os.path.abspath(OUT))

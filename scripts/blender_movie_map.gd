@@ -12,6 +12,8 @@ const BR_Z0 := 258.7
 const BR_Z1 := 265.2
 const BR_FLOOR := -1.4
 const BR_H := 2.8
+const INTERACTIVES_PATH := "res://assets/models/blender_movie_interactives.json"
+var _ia_names := {}
 const BR_TEX := "res://assets/textures/movie_map/CONCRETEFLOOR027B.png"
 
 
@@ -23,6 +25,9 @@ func _ready() -> void:
 		push_warning("blender_movie_map.glb 載入失敗")
 		return
 	var old := get_parent().get_node_or_null("BlenderMap")
+	var ia := _read_json(INTERACTIVES_PATH)
+	for e in ia:
+		_ia_names[String(e["n"])] = true
 	var inst := scene.instantiate() as Node3D
 	inst.position = ORIGIN
 	add_child(inst)
@@ -33,7 +38,22 @@ func _ready() -> void:
 	if old != null:
 		_cut(old, AABB(Vector3(BR_X0 - 0.4, BR_FLOOR - 0.2, BR_Z0 - 0.2), Vector3(0.8, BR_H + 0.4, BR_Z1 - BR_Z0 + 0.4)), true, old)
 	_build_bridge()
+	# 門：交給舊地圖腳本的互動機制（開關動畫、音效、提示文字）處理
+	if old != null and not ia.is_empty():
+		var oia = old.get("_ia")
+		if oia is Dictionary:
+			for e in ia:
+				oia[String(e["n"])] = e
+			old.call("_setup_interactives", inst)
 	_merge_lights.call_deferred()
+
+
+func _read_json(path: String) -> Array:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return []
+	var d = JSON.parse_string(f.get_as_text())
+	return d if d is Array else []
 
 
 # 新地圖的燈加進舊地圖腳本的燈池（它已經處理淡入淡出、怪物附近熄滅、環境光）
@@ -57,7 +77,7 @@ func _style_and_collide(n: Node, old: Node) -> void:
 	var mi := n as MeshInstance3D
 	if mi == null or mi.mesh == null:
 		return
-	var solid := not String(mi.name).begins_with("infodecal")
+	var solid := not String(mi.name).begins_with("infodecal") and not _ia_names.has(String(mi.name))  # 會動的門不做靜態碰撞
 	for i in mi.mesh.get_surface_count():
 		var m := mi.mesh.surface_get_material(i) as StandardMaterial3D
 		if m == null:
