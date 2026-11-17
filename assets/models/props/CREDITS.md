@@ -21,3 +21,6 @@
 | plant.glb | Houseplant | Quaternius | https://poly.pizza/m/f6GPjbEgg0 |
 | shelf_small.glb | Shelf Small | Quaternius | https://poly.pizza/m/TfdgUV2RYe |
 | trashcan.glb | Trashcan Small | Quaternius | https://poly.pizza/m/i7HDuYDLkx |
+
+## blender_map.glb
+User-supplied Blender import of the Garry's Mod map gm_br_pitfalls (textures downscaled to 256px). Third-party content: check the original map license before publishing the game.
