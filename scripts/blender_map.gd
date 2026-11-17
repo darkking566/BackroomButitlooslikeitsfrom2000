@@ -4,6 +4,7 @@ extends Node3D
 # 入口：空房東牆 → 通道 x92..126 → 街道廣場 (x≥124, z 164..234)。Blender 原點 = 此節點原點，Blender Z 向上 → Godot Y。
 
 const PixelStyle := preload("res://scripts/pixel_style.gd")
+const Details := preload("res://scripts/blender_map_details.gd")
 const MAP_PATH := "res://assets/models/blender_map.glb"
 const INTERACTIVES_PATH := "res://assets/models/blender_map_interactives.json"
 const LIGHTS_PATH := "res://assets/models/blender_map_lights.json"
@@ -35,7 +36,14 @@ func _ready() -> void:
 	link.end_position = Vector3(131.5, -1.6, 186.0)
 	add_child(link)
 	_load_lights.call_deferred()
+	_build_details.call_deferred()
 	_init_street_audio()
+
+
+func _build_details() -> void:
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Details.build(self)
 
 
 # 玩家是否在地圖範圍：東側（x>100）或是 Level0 平面範圍內但高度在 Level0 之外（地底 y<-6 / 高層 y>17）
