@@ -202,6 +202,15 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	_spawn_model(props, PROP_DIR + "pallet_broken.glb", "PalletBroken_1", Vector3(-14.0, 0.0, 6.0), 32.0, Vector3(1.2, 0.18, 1.0))
 	_spawn_model(props, PROP_DIR + "shelf_small.glb", "Shelf_1", Vector3(-19.5, 0.0, -12.0), 90.0, Vector3(1.2, 1.8, 0.5))
 	_spawn_model(props, PROP_DIR + "ladder.glb", "Ladder_1", Vector3(-23.2, 0.0, 2.0), 90.0, Vector3(0.6, 2.2, 0.4))
+
+	# 廢棄車輛、三角錐與大型垃圾子車（Blender 降飽和做舊，CC0）
+	_spawn_model(props, PROP_DIR + "car_sedan.glb", "CarSedan_1", Vector3(-12.5, 0.0, 12.0), 18.0, Vector3(2.1, 1.5, 4.3))
+	_spawn_model(props, PROP_DIR + "car_suv.glb", "CarSUV_1", Vector3(12.2, 0.0, -14.5), -95.0, Vector3(4.5, 1.65, 2.25))
+	_spawn_model(props, PROP_DIR + "dumpster.glb", "Dumpster_1", Vector3(22.2, 0.0, -6.5), -90.0, Vector3(1.0, 1.58, 1.9))
+	_spawn_model(props, PROP_DIR + "dumpster.glb", "Dumpster_2", Vector3(22.2, 0.0, 14.0), -90.0, Vector3(1.0, 1.58, 1.9))
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_1", Vector3(-4.5, 0.0, -5.2), 0.0, Vector3(0.55, 0.72, 0.55))
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_2", Vector3(4.2, 0.0, 18.8), 15.0, Vector3(0.55, 0.72, 0.55))
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_3", Vector3(-4.2, 0.0, 18.8), -20.0, Vector3(0.55, 0.72, 0.55))
 	_spawn_model(props, MODEL_DIR + "breaker_box.glb", "MainBreakerBox", Vector3(-23.6, 1.35, -3.5), 90.0, Vector3(0.35, 0.7, 0.5))
 	_add_interactive_box(props, "BreakerInteract", Vector3(-23.4, 1.35, -3.5), Vector3(0.7, 1.2, 0.8),
 		"檢查牆上的配電箱", "配電室維修紀錄",
