@@ -63,7 +63,7 @@ func _process(delta: float) -> void:
 	var t := 1.0 if w >= 1.0 else clampf(w * delta * 6.0, 0.0, 1.0)
 	var env := we.environment
 	env.fog_light_color = env.fog_light_color.lerp(Color(0.07, 0.075, 0.09), t)
-	env.fog_density = lerpf(env.fog_density, 0.01, t)
+	env.fog_density = lerpf(env.fog_density, 0.04, t)  # 和 Level0 一樣有霧（原本 0.01 太清楚），遠處的燈與牆漸漸隱沒
 	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.57, 0.64), t)
 	# 環境光跟「附近有沒有亮著的燈」走：燈下 0.28，離燈 14 m 以上降到 0.05（不開手電筒幾乎看不見）；
 	# 戶外（地面層）保底 0.14 當月光

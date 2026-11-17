@@ -58,7 +58,7 @@ func _mat(c: Color, rough: float = 0.85, emit: float = 0.0) -> StandardMaterial3
 		m.emission_enabled = true
 		m.emission = c
 		m.emission_energy_multiplier = emit
-	return m
+	return preload("res://scripts/pixel_style.gd").apply(m)
 
 
 func _process(delta: float) -> void:

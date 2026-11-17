@@ -32,6 +32,8 @@ tonemap_mode = 2
 fog_enabled = true
 fog_light_color = Color(0.32, 0.29, 0.16, 1)
 fog_density = 0.085
+adjustment_enabled = true
+adjustment_saturation = 0.78
 
 [node name="BackroomsTest" type="Node3D" unique_id=2000596382]
 

@@ -34,6 +34,10 @@ const CRAWL_DOOR_COL := 5 # 中庭→爬行層
 const UPPER_DOOR_COL := 7 # 迴廊→上層迷宮
 const EAST_DOOR_ROW := 5 # 爬行層→長廳
 
+const PixelStyle := preload("res://scripts/pixel_style.gd")
+const START_FOG := Color(0.32, 0.29, 0.16)  # 起點的霧色（WorldEnvironment）
+const MIN_FOG_DENSITY := 0.06  # 各區域不論色調，霧都不淡於這個值；環境光上限 0.2（起點 0.1），靠燈光照明
+const MAX_AMBIENT := 0.2
 const LEVEL0_FOG_COLOR := Color(0.50, 0.47, 0.27)
 const LEVEL0_FOG_DENSITY := 0.085
 const LEVEL0_AMBIENT_COLOR := Color(0.65, 0.60, 0.38)
@@ -80,6 +84,8 @@ func _init_materials() -> void:
 	_mat_thick = StandardMaterial3D.new()
 	_mat_thick.albedo_color = Color(0.56, 0.49, 0.34)
 	_mat_thick.roughness = 0.96
+	for m in [_mat_concrete, _mat_rail, _mat_wood, _mat_pale, _mat_thick]:
+		PixelStyle.apply(m)
 
 
 func _process(delta: float) -> void:
@@ -94,10 +100,13 @@ func _process(delta: float) -> void:
 	var p := _zone_env(_active_zone)
 	var t := clampf(delta * 2.5, 0.0, 1.0)
 	var env := _world_env.environment
-	env.fog_light_color = env.fog_light_color.lerp(p[0], t)
-	env.fog_density = lerpf(env.fog_density, p[1], t)
+	# 統一光照：保留各區的色調差異，但霧色往起點靠、霧不淡於 MIN_FOG_DENSITY、環境光不高於 MAX_AMBIENT
+	var fog_col: Color = (p[0] as Color).lerp(START_FOG, 0.6) * 0.65
+	fog_col.a = 1.0
+	env.fog_light_color = env.fog_light_color.lerp(fog_col, t)
+	env.fog_density = lerpf(env.fog_density, maxf(p[1], MIN_FOG_DENSITY), t)
 	env.ambient_light_color = env.ambient_light_color.lerp(p[2], t)
-	env.ambient_light_energy = lerpf(env.ambient_light_energy, p[3], t)
+	env.ambient_light_energy = lerpf(env.ambient_light_energy, minf(p[3] * 0.45, MAX_AMBIENT), t)
 
 
 # 回傳 [霧色, 霧密度, 環境光色, 環境光強度]；子類別覆寫以加入自己的區域
