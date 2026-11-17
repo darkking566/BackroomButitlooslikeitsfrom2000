@@ -2,12 +2,20 @@ extends CharacterBody3D
 
 @export var walk_speed: float = 3.2
 @export var sprint_speed: float = 5.0
+@export var crouch_speed: float = 1.9
+@export var jump_velocity: float = 4.4
 @export var acceleration: float = 10.0
 @export var gravity: float = 12.0
 @export var mouse_sensitivity: float = 0.0022
 @export var bob_frequency: float = 2.2
 @export var bob_amplitude: float = 0.04
 
+const STAND_HEIGHT: float = 1.7
+const CROUCH_HEIGHT: float = 1.0
+const STAND_HEAD_Y: float = 1.55
+const CROUCH_HEAD_Y: float = 0.88
+
+@onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var flashlight: SpotLight3D = $Head/Camera3D/Flashlight
@@ -19,6 +27,8 @@ var _camera_base_y: float = 0.0
 var _pitch: float = 0.0
 var _ignore_mouse_frames: int = 3
 var _step_primed: bool = true
+var _is_crouching: bool = false
+var _capsule: CapsuleShape3D
 
 var _win95_ui: CanvasLayer
 var _spawn_pos: Vector3
@@ -32,6 +42,9 @@ func _ready() -> void:
 	_spawn_pos = position
 	_spawn_rot = rotation
 	_camera_base_y = camera.position.y
+	if collision_shape and collision_shape.shape is CapsuleShape3D:
+		_capsule = collision_shape.shape.duplicate() as CapsuleShape3D
+		collision_shape.shape = _capsule
 	if flashlight:
 		flashlight.visible = false
 	if footstep_player:
@@ -162,11 +175,15 @@ func _physics_process(delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= gravity * delta
+	elif _is_key_down(KEY_SPACE):
+		velocity.y = jump_velocity
+
+	_update_crouch(delta)
 
 	var input_dir := _get_move_input()
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	var is_sprinting := _is_key_down(KEY_SHIFT)
-	var target_speed := sprint_speed if is_sprinting else walk_speed
+	var is_sprinting := _is_key_down(KEY_SHIFT) and not _is_crouching
+	var target_speed := crouch_speed if _is_crouching else (sprint_speed if is_sprinting else walk_speed)
 
 	if direction != Vector3.ZERO:
 		velocity.x = lerpf(velocity.x, direction.x * target_speed, acceleration * delta)
@@ -177,6 +194,26 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_head_bob(delta)
+
+
+func _update_crouch(delta: float) -> void:
+	var wants_crouch := _is_key_down(KEY_CTRL) or _is_key_down(KEY_C)
+	if wants_crouch:
+		_is_crouching = true
+	elif _is_crouching:
+		if not test_move(global_transform, Vector3(0.0, STAND_HEIGHT - CROUCH_HEIGHT, 0.0)):
+			_is_crouching = false
+
+	var target_h := CROUCH_HEIGHT if _is_crouching else STAND_HEIGHT
+	var t := clampf(delta * 14.0, 0.0, 1.0)
+	if _capsule and collision_shape:
+		_capsule.height = lerpf(_capsule.height, target_h, t)
+		# In mid-air while crouching, tuck legs UP to clear higher platforms (crouch-jump)
+		var target_col_y := (STAND_HEIGHT - _capsule.height * 0.5) if (not is_on_floor() and _is_crouching) else (_capsule.height * 0.5)
+		collision_shape.position.y = lerpf(collision_shape.position.y, target_col_y, t)
+
+	var target_head_y := CROUCH_HEAD_Y if (_is_crouching and is_on_floor()) else STAND_HEAD_Y
+	head.position.y = lerpf(head.position.y, target_head_y, t)
 
 
 func _update_interact_target() -> void:

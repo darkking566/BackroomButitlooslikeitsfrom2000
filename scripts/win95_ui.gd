@@ -232,7 +232,7 @@ func close_popup() -> void:
 	_exit_dialog.visible = false
 	if _map_group:
 		_map_group.visible = false
-	_task_label.text = " WASD 移動 | Shift 慢跑 | F 手電筒 | E 互動 | M 地圖傳送 | Esc 滑鼠"
+	_task_label.text = " WASD 移動 | Shift 慢跑 | Space 跳 | Ctrl/C 蹲 | F 手電筒 | E 互動 | M 地圖"
 	window_closed.emit()
 
 
@@ -299,7 +299,7 @@ func _build_hud() -> void:
 	task_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tb_row.add_child(task_box)
 	_task_label = Label.new()
-	_task_label.text = " WASD 移動 | Shift 慢跑 | F 手電筒 | E 互動 | M 地圖傳送 | Esc 滑鼠"
+	_task_label.text = " WASD 移動 | Shift 慢跑 | Space 跳 | Ctrl/C 蹲 | F 手電筒 | E 互動 | M 地圖"
 	_task_label.add_theme_color_override("font_color", Color.BLACK)
 	_task_label.add_theme_font_size_override("font_size", 12)
 	_task_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
