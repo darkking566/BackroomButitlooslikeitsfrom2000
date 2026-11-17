@@ -96,6 +96,8 @@ func _style_materials(n: Node) -> void:
 		d.metallic = 0.0
 		d.metallic_specular = 0.1
 		d.roughness = 1.0
+		if d.albedo_texture == null:
+			_fill_missing(d, nm)
 		if nm.contains("FLOULIGHT") and not nm.contains("OFF"):
 			d.emission_enabled = true
 			d.emission = Color(1.0, 0.95, 0.75)
@@ -183,3 +185,84 @@ func _update_lights(delta: float, ppos: Vector3) -> void:
 
 func _energy_of(i: int) -> float:
 	return clampf(0.9 + float(_src[i][6]) / 2000.0, 1.0, 3.0)
+
+
+# --- 原圖缺貼圖的材質（Half-Life 2 內建貼圖，沒附在地圖包裡）：依名稱用程式生成的小圖補上 ---
+var _proc_cache := {}
+
+
+func _fill_missing(m: StandardMaterial3D, nm: String) -> void:
+	m.albedo_color = Color.WHITE
+	if nm.contains("GLASS") or nm.contains("WINDOW"):
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(0.62, 0.74, 0.8, 0.28)
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		return
+	if nm.contains("TOOLSBLACK"):
+		m.albedo_color = Color(0.02, 0.02, 0.02)
+		return
+	var kind := "concrete"
+	if nm.contains("BRICK"):
+		kind = "brick"
+	elif nm.contains("CLIFF") or nm.contains("DIRT") or nm.contains("DEBRIS"):
+		kind = "rock"
+	elif nm.contains("GRASS"):
+		kind = "grass"
+	elif nm.contains("WOOD"):
+		kind = "wood"
+	elif nm.contains("TILE"):
+		kind = "tile"
+	elif nm.contains("FLUORESCENT"):
+		kind = "light"
+	elif nm.contains("WHITE") or nm.contains("PLASTER"):
+		kind = "plaster"
+	elif nm.contains("METAL") or nm.contains("CITADEL") or nm.contains("DOORBUTTON") or nm.contains("DUCT"):
+		kind = "metal"
+	m.albedo_texture = _proc_tex(kind)
+	if kind == "light":
+		m.emission_enabled = true
+		m.emission = Color(1.0, 0.97, 0.85)
+		m.emission_energy_multiplier = 1.4
+		m.emission_texture = m.albedo_texture
+
+
+func _proc_tex(kind: String) -> ImageTexture:
+	if _proc_cache.has(kind):
+		return _proc_cache[kind]
+	var n := 64
+	var img := Image.create(n, n, true, Image.FORMAT_RGB8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(kind)
+	for y in n:
+		for x in n:
+			var c := Color.WHITE
+			var j := rng.randf_range(-1.0, 1.0)
+			match kind:
+				"brick":
+					var row := y / 8
+					var bx := (x + (8 if row % 2 == 1 else 0)) % 16
+					c = Color(0.36, 0.34, 0.31) if (y % 8 == 0 or bx == 0) else Color(0.55, 0.27, 0.2).lerp(Color(0.42, 0.2, 0.16), float((row * 7 + (x + (8 if row % 2 == 1 else 0)) / 16) % 3) / 2.0)
+					c = c * (1.0 + j * 0.06)
+				"rock":
+					c = Color(0.38, 0.34, 0.29) * (1.0 + j * 0.22 + sin(x * 0.4 + y * 0.2) * 0.08)
+				"grass":
+					c = Color(0.22, 0.38, 0.14) * (1.0 + j * 0.25)
+				"wood":
+					c = Color(0.5, 0.34, 0.18) * (1.0 + sin(y * 1.1 + j * 0.8) * 0.14 + j * 0.05)
+				"tile":
+					c = Color(0.52, 0.55, 0.55) * (1.0 + j * 0.04)
+					if x % 16 == 0 or y % 16 == 0:
+						c = Color(0.3, 0.32, 0.32)
+				"light":
+					c = Color(0.95, 0.95, 0.9) * (1.0 + j * 0.02)
+				"plaster":
+					c = Color(0.82, 0.8, 0.74) * (1.0 + j * 0.05)
+				"metal":
+					c = Color(0.42, 0.44, 0.45) * (1.0 + sin(x * 0.9) * 0.05 + j * 0.07)
+				_:
+					c = Color(0.5, 0.5, 0.48) * (1.0 + j * 0.12)
+			img.set_pixel(x, y, Color(clampf(c.r, 0.0, 1.0), clampf(c.g, 0.0, 1.0), clampf(c.b, 0.0, 1.0)))
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	_proc_cache[kind] = t
+	return t
