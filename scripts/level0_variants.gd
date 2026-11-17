@@ -342,7 +342,9 @@ func _build_pillars(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 func _build_pitfalls(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	_add_room_box(body, Vector3(15.0, WALL_H + 0.1, 45.5), Vector3(22.0, 0.2, 22.0), MAT_CEILING)
 	_add_wall(body, Vector3(15.0, WALL_H * 0.5, 34.35), Vector3(22.0, WALL_H, 0.3), MAT_WALLPAPER)
-	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 45.5), Vector3(0.3, WALL_H, 22.0), MAT_WALLPAPER)
+	# East wall splits around Level0Expanse SE wing opening z [44.2 .. 46.3]
+	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 39.35), Vector3(0.3, WALL_H, 9.7), MAT_WALLPAPER)
+	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 51.4), Vector3(0.3, WALL_H, 10.2), MAT_WALLPAPER)
 	# West wall splits around Hub opening z [38.5 .. 46.5]
 	_add_wall(body, Vector3(3.85, WALL_H * 0.5, 36.5), Vector3(0.3, WALL_H, 4.0), MAT_WALLPAPER)
 	_add_wall(body, Vector3(3.85, WALL_H * 0.5, 51.5), Vector3(0.3, WALL_H, 10.0), MAT_WALLPAPER)
@@ -397,7 +399,9 @@ func _build_blackout(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	_add_room_box(body, Vector3(15.0, -0.1, 68.5), Vector3(22.0, 0.2, 24.0), MAT_CARPET)
 	_add_room_box(body, Vector3(15.0, WALL_H + 0.1, 68.5), Vector3(22.0, 0.2, 24.0), MAT_CEILING)
 	_add_wall(body, Vector3(3.85, WALL_H * 0.5, 68.5), Vector3(0.3, WALL_H, 24.0), MAT_WALLPAPER)
-	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 68.5), Vector3(0.3, WALL_H, 24.0), MAT_WALLPAPER)
+	# East wall splits around basement stair opening z [70 .. 72]
+	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 63.25), Vector3(0.3, WALL_H, 13.5), MAT_WALLPAPER)
+	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 76.25), Vector3(0.3, WALL_H, 8.5), MAT_WALLPAPER)
 	_add_wall(body, Vector3(15.0, WALL_H * 0.5, 80.65), Vector3(22.0, WALL_H, 0.3), MAT_WALLPAPER)
 
 	# Interior maze walls & dead ceiling panels (no lights!)

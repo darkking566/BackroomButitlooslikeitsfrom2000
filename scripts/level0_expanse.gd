@@ -7,12 +7,18 @@ extends Node3D
 #   D1 低矮爬行層   x[-110..-76]  z[70..104]  天花 2.2（迷宮）
 #   D2 上層辦公迷宮 同上範圍      y 4.5..7.5（迷宮，角落破洞掉回 D1）
 #   E 高柱長廳      x[-76..-44]   z[58..104]  天花 6，抬高平台 y 1.5
+# 東南翼（從深坑東牆 z[44.2..46.3] 進入，繞一圈回到熄燈區東牆 z[70..72]）：
+#   F 梯田辦公室    x[26..56]  z[34..58]  四階地台 y 0/0.8/1.6/2.4，天花 6
+#   G 螺旋塔        x[56..70]  z[34..48]  塔底 y 2.4，沿牆盤旋到 y 7.2，天花 14.5
+#   H 貓道倉庫      x[56..86]  z[48..82]  地面 0，貓道 y 7.2，天花 11
+#   I 斜坡 + 地下檔案室 x[26..56] z[60..80] 地面 y -2.0（深坑重生判定為 y < -2.4）
 # 生成節點不設 owner（AGENTS.md）。
 
 const MAT_WALLPAPER := preload("res://materials/mat_wallpaper.tres")
 const MAT_CARPET := preload("res://materials/mat_carpet.tres")
 const MAT_CEILING := preload("res://materials/mat_ceiling.tres")
 const MAT_FLUORESCENT := preload("res://materials/mat_fluorescent.tres")
+const MAT_WET_FLOOR := preload("res://materials/mat_wet_floor.tres")
 const INTERACT_SCRIPT := preload("res://scripts/interactable_prop.gd")
 
 const WT := 0.3 # 外牆厚度
@@ -85,6 +91,15 @@ func _process(delta: float) -> void:
 		"atrium": # 挑高空間要看得到對面迴廊
 			dens = 0.035
 			amb_e = 0.45
+		"tower", "warehouse":
+			dens = 0.04
+			amb = Color(0.58, 0.58, 0.48)
+			amb_e = 0.42
+		"basement":
+			fog = Color(0.22, 0.24, 0.16)
+			dens = 0.12
+			amb = Color(0.32, 0.36, 0.24)
+			amb_e = 0.2
 		"crawl":
 			fog = Color(0.30, 0.27, 0.15)
 			dens = 0.11
@@ -124,6 +139,10 @@ func _build() -> void:
 	_build_atrium()
 	_build_stacked_mazes()
 	_build_column_hall()
+	_build_terraces()
+	_build_tower()
+	_build_warehouse()
+	_build_basement()
 
 
 # --- A: 拱門 → 會議坑 ---
@@ -284,7 +303,7 @@ func _build_column_hall() -> void:
 	_box(Vector3(-53.0, 0.75, 92.0), Vector3(14.0, 1.5, 20.0), _mat_pale)
 	_slab(-60.0, 82.0, -46.0, 102.0, 1.52, _mat_thick, 0.02, false)
 	var ang := atan2(1.5, 6.0)
-	_box(Vector3(-53.0, 0.75 - 0.1 / cos(ang), 79.0), Vector3(6.0, 0.2, 6.0 / cos(ang)), _mat_pale, true, -ang)
+	_box(Vector3(-53.0, 0.75 - 0.1 / cos(ang), 79.0), Vector3(6.0, 0.2, 6.0 / cos(ang)), _mat_pale, true, Vector3(-ang, 0, 0))
 	_stairs(Vector3(-62.8, 0.0, 92.0), Vector3(1, 0, 0), 4.0, 7, 1.5 / 7.0, 0.4, _mat_pale, true)
 	_rail(true, 82.0, -60.0, -56.0, 1.5)
 	_rail(true, 82.0, -50.0, -46.0, 1.5)
@@ -309,6 +328,149 @@ func _build_column_hall() -> void:
 	_note("HallNote", Vector3(-53.0, 2.65, 101.85), 0.0, "閱讀平台盡頭的紀錄", "高柱長廳紀錄",
 		"【高柱長廳】\n柱子比任何辦公室需要的都粗。平台上的地毯很新，好像剛有人鋪過。\n\n"
 		+ "「站在平台上可以數到七排柱子。下去之後我只數到六。」")
+
+
+# --- F: 梯田辦公室（往東每階升 0.8）---
+func _build_terraces() -> void:
+	var edges: Array[float] = [26.0, 33.5, 41.0, 48.5, 56.0]
+	var stair_z: Array[float] = [45.25, 38.0, 52.0] # 每道台階位置錯開，走起來要繞
+	for i in 4:
+		var y := i * 0.8
+		var x1 := edges[i]
+		var x2 := edges[i + 1]
+		if i == 0:
+			_slab(x1, 34.0, x2, 58.0, 0.0, MAT_CARPET)
+		else:
+			_box(Vector3((x1 + x2) * 0.5, y * 0.5, 46.0), Vector3(x2 - x1, y, 24.0), _mat_pale)
+			_slab(x1, 34.0, x2, 58.0, y + 0.02, MAT_CARPET, 0.02, false)
+		# 隔間板（避開上一道台階的落腳處）
+		for pz in [38.0, 46.0, 54.0]:
+			if i > 0 and absf(pz - stair_z[i - 1]) < 3.0:
+				continue
+			_box(Vector3(x1 + 3.75, y + 0.7, pz), Vector3(3.0, 1.4, 0.08), _mat_concrete)
+			_box(Vector3(x1 + 2.25, y + 0.7, pz + 1.0), Vector3(0.08, 1.4, 2.0), _mat_concrete)
+	for i in 3:
+		var bx := edges[i + 1]
+		var y_low := i * 0.8
+		var sz := stair_z[i]
+		_stairs(Vector3(bx - 1.6, y_low, sz), Vector3(1, 0, 0), 4.0, 4, 0.2, 0.4, _mat_pale, true)
+		_rail(false, bx, 34.0, sz - 2.0, y_low + 0.8)
+		_rail(false, bx, sz + 2.0, 58.0, y_low + 0.8)
+	_slab(26.0, 34.0, 56.0, 58.0, 6.2, MAT_CEILING)
+	_wall(true, 34.0, 26.0, 56.0, 0.0, 6.0, MAT_WALLPAPER)
+	_wall(true, 58.0, 26.0, 56.0, 0.0, 6.0, MAT_WALLPAPER)
+	_wall_piece(false, 26.45, 34.0, 58.0, 3.2, 6.0, MAT_WALLPAPER) # 深坑牆只有 3m 高，補上半截
+	for lx in [29.75, 37.25, 44.75, 52.25]:
+		for lz in [40.0, 52.0]:
+			_light(Vector3(lx, 5.98, lz), 0.7, 8.5)
+	_note("TerraceNote", Vector3(52.25, 3.1, 46.08), 180.0, "閱讀隔間板上的便利貼", "梯田辦公室紀錄",
+		"【梯田辦公室】\n地板一階一階往東抬高，天花板卻沒跟著動。走到最高那一階，伸手就快摸到燈了。\n\n"
+		+ "「東牆那扇門後面是一座塔。我爬了三圈，下面的地板越來越遠。」")
+
+
+# --- G: 螺旋塔（沿牆逆時針盤旋）---
+func _build_tower() -> void:
+	var base := 2.4
+	var w := 2.2 # 走道寬
+	_slab(56.0, 34.0, 70.0, 48.0, base, MAT_CARPET, 0.3)
+	_slab(56.0, 34.0, 70.0, 48.0, 14.7, MAT_CEILING)
+	# 北側：往 +x 上到 4.0
+	_stairs(Vector3(58.2, base, 34.0 + w * 0.5), Vector3(1, 0, 0), w, 8, 0.2, 0.4, _mat_pale, false)
+	_slab(61.4, 34.0, 70.0, 34.0 + w, 4.0, MAT_CARPET, 0.3)
+	_rail(true, 34.0 + w, 61.4, 70.0 - w, 4.0)
+	# 東側：往 +z 上到 5.6
+	_stairs(Vector3(70.0 - w * 0.5, 4.0, 34.0 + w), Vector3(0, 0, 1), w, 8, 0.2, 0.4, _mat_pale, false)
+	_slab(70.0 - w, 39.4, 70.0, 48.0, 5.6, MAT_CARPET, 0.3)
+	_rail(false, 70.0 - w, 39.4, 48.0 - w, 5.6)
+	# 南側：往 -x 上到 7.2，門通倉庫貓道
+	_stairs(Vector3(70.0 - w, 5.6, 48.0 - w * 0.5), Vector3(-1, 0, 0), w, 8, 0.2, 0.4, _mat_pale, false)
+	_slab(56.0, 48.0 - w, 64.6, 48.0, 7.2, MAT_CARPET, 0.3)
+	_rail(true, 48.0 - w, 56.0, 64.6, 7.2)
+	# 牆（西牆 x=56 與梯田共用，門在塔底）
+	_wall(true, 34.0, 56.0, 70.0, 0.0, 14.5, _mat_pale)
+	_wall(false, 70.0, 34.0, 48.0, 0.0, 14.5, _mat_pale)
+	_wall(false, 56.0, 34.0, 48.0, 0.0, 14.5, _mat_pale, [Vector4(40.0, 43.0, base, base + 2.4)])
+	_wall(true, 48.0, 56.0, 70.0, 0.0, 14.5, _mat_pale, [Vector4(58.5, 60.5, 7.2, 9.7)])
+	_light(Vector3(63.0, 14.48, 41.0), 1.2, 15.0)
+	_light(Vector3(66.0, 3.68, 35.1), 0.45, 5.0)
+	_light(Vector3(68.9, 5.28, 44.0), 0.45, 5.0)
+	_trigger("TowerTrigger", Vector3(63.0, 8.5, 41.0), Vector3(13.4, 12.0, 13.4), "tower")
+	_note("TowerNote", Vector3(56.2, 8.4, 46.9), 90.0, "閱讀塔頂牆上的紀錄", "螺旋塔紀錄",
+		"【螺旋塔】\n樓梯貼著牆一圈一圈往上，中間是空的。從這裡往下看，塔底的地毯像一張郵票。\n\n"
+		+ "「南牆的門外是貓道。別往下看——下面的貨架比你想的高。」")
+
+
+# --- H: 貓道倉庫 ---
+func _build_warehouse() -> void:
+	var cy := 7.2
+	_slab(56.0, 48.0, 86.0, 82.0, 0.0, _mat_concrete)
+	_slab(56.0, 48.0, 86.0, 82.0, 11.2, MAT_CEILING)
+	# 貓道 A（塔門往南）、B（東西向）、C（南北向）
+	_slab(58.7, 48.0, 60.3, 64.8, cy, _mat_rail, 0.15)
+	_slab(60.3, 63.2, 85.0, 64.8, cy, _mat_rail, 0.15)
+	_slab(79.2, 52.0, 80.8, 78.0, cy, _mat_rail, 0.15)
+	_rail(false, 58.7, 48.0, 64.8, cy)
+	_rail(false, 60.3, 48.0, 63.2, cy)
+	_rail(true, 63.2, 60.3, 79.2, cy)
+	_rail(true, 63.2, 80.8, 85.0, cy)
+	_rail(true, 64.8, 58.7, 79.2, cy)
+	_rail(true, 64.8, 80.8, 83.0, cy)
+	_rail(false, 85.0, 63.2, 64.8, cy)
+	for rx in [79.2, 80.8]:
+		_rail(false, rx, 52.0, 63.2, cy)
+		_rail(false, rx, 64.8, 78.0, cy)
+	_rail(true, 52.0, 79.2, 80.8, cy)
+	_rail(true, 78.0, 79.2, 80.8, cy)
+	# 東牆邊下到地面的長樓梯（36 階）
+	_stairs(Vector3(84.0, 0.0, 79.2), Vector3(0, 0, -1), 2.0, 36, 0.2, 0.4, _mat_pale, false)
+	_rail(false, 82.95, 64.8, 79.2, 0.0, cy)
+	# 貨架
+	for rz in [54.0, 60.0, 70.0, 76.0]:
+		_box(Vector3(70.0, 3.0, rz), Vector3(14.0, 6.0, 1.2), _mat_wood)
+	_wall(true, 48.0, 70.0, 86.0, 0.0, 11.0, MAT_WALLPAPER)
+	_wall(false, 86.0, 48.0, 82.0, 0.0, 11.0, MAT_WALLPAPER)
+	_wall(true, 82.0, 56.0, 86.0, 0.0, 11.0, MAT_WALLPAPER)
+	_wall(false, 56.0, 48.0, 82.0, 0.0, 11.0, MAT_WALLPAPER, [Vector4(73.0, 77.0, 0.0, 3.0)])
+	for lx in [62.0, 71.0, 80.0]:
+		for lz in [56.0, 67.0, 78.0]:
+			_light(Vector3(lx, 10.98, lz), 1.1, 13.0)
+	_trigger("WarehouseTrigger", Vector3(71.0, 5.5, 65.0), Vector3(29.4, 11.0, 33.4), "warehouse")
+	_note("CatwalkNote", Vector3(80.0, cy + 1.0, 77.85), 180.0, "閱讀貓道盡頭的紙條", "貓道倉庫紀錄",
+		"【貓道倉庫】\n貨架上什麼都沒放，但每一格都有編號，最大的編號比貨架數量還多。\n\n"
+		+ "「西牆下面有個門，地板從那裡開始往下斜。我不知道 Level 0 有地下室。」")
+
+
+# --- I: 斜坡走廊 + 地下檔案室，樓梯回到熄燈區 ---
+func _build_basement() -> void:
+	var by := -2.0
+	# 斜坡 x[46..56]，從 0 降到 -2.0
+	var ang := atan2(-by, 10.0)
+	_box(Vector3(51.0, by * 0.5 - 0.1 / cos(ang), 75.0), Vector3(10.0 / cos(ang), 0.2, 6.0), MAT_CARPET, true, Vector3(0, 0, ang))
+	_slab(46.0, 72.0, 56.0, 78.0, 3.2, MAT_CEILING)
+	_wall(true, 72.0, 46.0, 56.0, by, 3.0 - by, MAT_WALLPAPER)
+	_wall(true, 78.0, 46.0, 56.0, by, 3.0 - by, MAT_WALLPAPER)
+	# 檔案室 x[26..46] z[60..80]；西端樓梯區天花拉高到 3.0
+	_slab(26.3, 60.0, 46.0, 80.0, by, _mat_concrete)
+	_slab(31.0, 60.0, 46.0, 80.0, 1.4, MAT_CEILING)
+	_slab(26.3, 60.0, 31.0, 80.0, 3.2, MAT_CEILING)
+	_stairs(Vector3(30.0, by, 71.0), Vector3(-1, 0, 0), 2.0, 10, 0.2, 0.4, _mat_concrete, true)
+	_wall(true, 60.0, 26.3, 46.0, by, 3.0 - by, _mat_concrete)
+	_wall(true, 80.0, 26.3, 46.0, by, 3.0 - by, _mat_concrete)
+	_wall(false, 46.0, 60.0, 80.0, by, 3.0 - by, _mat_concrete, [Vector4(72.0, 78.0, by, 1.2)])
+	_wall_piece(false, 26.45, 60.0, 80.0, by, 0.0, _mat_concrete) # 熄燈區牆的下方
+	_wall_piece(true, 70.0 - WT * 0.5, 26.3, 31.0, 1.2, 3.0, _mat_concrete) # 樓梯井兩側擋住高低天花的縫
+	_wall_piece(true, 72.0 + WT * 0.5, 26.3, 31.0, 1.2, 3.0, _mat_concrete)
+	for rz in [63.0, 66.5, 77.0]:
+		_box(Vector3(38.0, by + 1.3, rz), Vector3(12.0, 2.6, 0.9), _mat_wood)
+	_box(Vector3(36.0, by + 0.01, 74.5), Vector3(6.0, 0.02, 3.0), MAT_WET_FLOOR, false)
+	for lx in [34.0, 42.0]:
+		_light(Vector3(lx, 1.18, 65.0), 0.35, 5.5)
+		_light(Vector3(lx, 1.18, 75.0), 0.35, 5.5)
+	_light(Vector3(51.0, 2.98, 75.0), 0.5, 6.0)
+	_trigger("BasementTrigger", Vector3(36.0, by + 1.5, 70.0), Vector3(19.4, 3.0, 19.4), "basement")
+	_note("BasementNote", Vector3(38.0, by + 1.3, 66.0), 0.0, "翻看檔案架上的資料夾", "地下檔案室紀錄",
+		"【地下檔案室】\n每個資料夾的標籤都寫著「Level 0」，裡面全是空白的平面圖。\n\n"
+		+ "「西邊有樓梯往上，牆後面沒有燈。帶著手電筒。」")
 
 
 # --- 迷宮 ---
@@ -395,7 +557,7 @@ func _cell_center(c: Vector2i, y: float) -> Vector3:
 
 
 # --- 幾何 helper ---
-func _box(pos: Vector3, sz: Vector3, mat: Material, collide: bool = true, rot_x: float = 0.0) -> void:
+func _box(pos: Vector3, sz: Vector3, mat: Material, collide: bool = true, rot: Vector3 = Vector3.ZERO) -> void:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = sz
@@ -406,7 +568,7 @@ func _box(pos: Vector3, sz: Vector3, mat: Material, collide: bool = true, rot_x:
 	mi.mesh = bm
 	mi.material_override = mat
 	mi.position = pos
-	mi.rotation.x = rot_x
+	mi.rotation = rot
 	_body.add_child(mi)
 	if collide:
 		var cs := CollisionShape3D.new()
@@ -414,7 +576,7 @@ func _box(pos: Vector3, sz: Vector3, mat: Material, collide: bool = true, rot_x:
 		bs.size = sz
 		cs.shape = bs
 		cs.position = pos
-		cs.rotation.x = rot_x
+		cs.rotation = rot
 		_body.add_child(cs)
 
 
