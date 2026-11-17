@@ -13,6 +13,7 @@ const LIGHT_KILL_DIST := 7.0  # 牠周圍這個距離內的燈會熄掉
 const LIGHT_FLICKER_DIST := 15.0  # 這個距離內的燈開始亂閃，預告牠快到了
 const DREAD_DIST := 15.0   # 這個距離內畫面開始劣化（穿牆也算：你「感覺」得到牠）
 const MAX_CHASE_SPEED := 4.9  # 越追越快的上限，必須低於玩家跑速 5.0
+const FRENZY_SPEED := 9.0  # 狂暴模式：接近玩家跑速兩倍，跑不掉
 
 const MODEL_PATH := "res://assets/models/monster.glb"
 
@@ -74,6 +75,8 @@ var _echo_left := 0      # 回聲腳步還剩幾步
 var _echo_t := 0.0
 var _post_mat: ShaderMaterial
 var _post_base := {}
+var _heavy: AudioStreamPlayer3D  # 狂暴模式的沉重腳步
+var _noclip := false           # 狂暴模式下目前是否正在穿牆
 
 
 func _ready() -> void:
@@ -106,6 +109,13 @@ func _ready() -> void:
 	_lure_sfx.volume_db = -8.0
 	_lure_sfx.max_distance = 26.0
 	add_child(_lure_sfx)
+	_heavy = AudioStreamPlayer3D.new()
+	_heavy.stream = _steps.stream
+	_heavy.pitch_scale = 0.3   # 壓低成沉悶的重擊
+	_heavy.volume_db = 10.0
+	_heavy.unit_size = 4.0
+	_heavy.max_distance = 70.0  # 很遠就聽得到牠衝過來
+	add_child(_heavy)
 	var filter := get_parent().get_node_or_null("PS2PostLayer/PS2Filter")
 	if filter and filter.material is ShaderMaterial:
 		_post_mat = filter.material
@@ -140,12 +150,16 @@ func _physics_process(delta: float) -> void:
 	if _enraged_t > 0.0:
 		_enraged_t -= delta
 	var moved := false
-	if _stagger_t > 0.0:
+	var frenzy: bool = _ui != null and _ui.frenzy_mode
+	if frenzy:
+		moved = _frenzy(delta, dist)
+	elif _stagger_t > 0.0:
 		_stagger_t -= delta
 	else:
 		_think(delta)
 		moved = _move(delta)
-	_update_flashlight_reaction(delta, dist)
+	if not frenzy:  # 狂暴時手電筒嚇不住牠
+		_update_flashlight_reaction(delta, dist)
 	_update_neck_snap(delta, moved)
 	_update_lure(delta, dist)
 	_light_t -= delta
@@ -201,11 +215,7 @@ func _think(delta: float) -> void:
 				return
 			state = State.CHASE
 		if dist < catch_distance:
-			var bm := get_parent().get_node_or_null("BlenderMap")  # 在 Blender 地圖裡被抓：播專屬的驚嚇音效
-			if bm and bm.call("in_map", _player.global_position):
-				bm.call("play_caught")
-			_player._on_restart_requested()
-			_reset()
+			_catch()
 			return
 		if _repath_t <= 0.0:
 			_repath_t = 0.3
@@ -269,6 +279,52 @@ func _think(delta: float) -> void:
 			return
 	# 巡邏：多半去玩家最常待的地方，偶爾直接晃到玩家附近（避免永遠遇不到）
 	_go_to(_hot_spot(ppos, INF) if randf() < 0.6 else _near(ppos, 12.0, 25.0))
+
+
+func _catch() -> void:
+	var bm := get_parent().get_node_or_null("BlenderMap")  # 在 Blender 地圖裡被抓：播專屬的驚嚇音效
+	if bm and bm.call("in_map", _player.global_position):
+		bm.call("play_caught")
+	_player._on_restart_requested()
+	_reset()
+
+
+# 狂暴模式：無視視線與聲音，永遠直奔玩家當下位置。導航到不了玩家時（路徑終點離玩家太遠）直接直線穿牆。
+func _frenzy(delta: float, dist: float) -> bool:
+	var ppos := _player.global_position
+	state = State.CHASE
+	_mood = Mood.RUSH
+	if dist < catch_distance:
+		_catch()
+		return false
+	_repath_t -= delta
+	if _repath_t <= 0.0:
+		_repath_t = 0.2
+		_go_to(ppos)
+		_noclip = _unreachable(ppos)
+	var step := FRENZY_SPEED * delta
+	if _noclip:
+		global_position = global_position.move_toward(ppos + Vector3.UP * 0.3, step)
+	elif _path_i < _path.size():
+		global_position = global_position.move_toward(_path[_path_i], step)
+		if global_position.distance_to(_path[_path_i]) < 0.05:
+			_path_i += 1
+	else:
+		return false
+	_step_t -= delta
+	if _step_t <= 0.0:
+		_step_t = 0.26
+		_heavy.pitch_scale = randf_range(0.27, 0.33)
+		_heavy.play()
+	return true
+
+
+# 導航路徑的終點離玩家太遠 = 牆或障礙完全擋住，繞不過去（跳躍中的高度差放寬容許）
+func _unreachable(ppos: Vector3) -> bool:
+	if _path.is_empty():
+		return true
+	var end := _path[_path.size() - 1]
+	return Vector2(end.x - ppos.x, end.z - ppos.z).length() > 1.5 or absf(end.y - ppos.y) > 2.5
 
 
 func _sees_player() -> bool:
@@ -451,6 +507,8 @@ func _reset() -> void:
 	_flash_burn = 0.0
 	_stagger_t = 0.0
 	_enraged_t = 0.0
+	_noclip = false
+	_repath_t = 0.0
 	state = State.PATROL
 
 
@@ -506,7 +564,7 @@ func _update_visual(delta: float, moved: bool, dist: float) -> void:
 		if _anim.has_animation(want) and _anim.current_animation != want:
 			_anim.play(want, 0.15)
 		if want == "Walk":
-			_anim.speed_scale = 1.9 if _enraged_t > 0.0 else (1.6 if state == State.CHASE else 1.0)
+			_anim.speed_scale = 2.6 if _ui and _ui.frenzy_mode else 1.9 if _enraged_t > 0.0 else (1.6 if state == State.CHASE else 1.0)
 		else:
 			_anim.speed_scale = 1.0
 

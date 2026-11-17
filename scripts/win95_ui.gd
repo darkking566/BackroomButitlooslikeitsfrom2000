@@ -45,11 +45,19 @@ var _map_canvas: Control
 
 var _is_open: bool = false
 
+const SETTINGS_PATH := "user://settings.cfg"
+var frenzy_mode := false  # 狂暴追獵模式：怪物讀這個值
+var _settings_group: Control
+
 
 func _ready() -> void:
 	layer = 2
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) == OK:
+		frenzy_mode = cfg.get_value("monster", "frenzy_mode", false)
 	_build_hud()
 	_build_overlay()
+	_build_settings()
 	_overlay.visible = false
 
 
@@ -222,17 +230,29 @@ func show_map(player_pos: Vector3, player_yaw: float) -> void:
 	_task_label.text = " M.E.G. Level 0 導航地圖與快速傳送"
 
 
+func show_settings() -> void:
+	_is_open = true
+	_prompt_panel.visible = false
+	_overlay.visible = true
+	_explorer_group.visible = false
+	_note_group.visible = false
+	_exit_dialog.visible = false
+	_settings_group.visible = true
+	_task_label.text = " Control Panel - 設定"
+
+
 func close_popup() -> void:
 	if not _is_open:
 		return
 	_is_open = false
 	_overlay.visible = false
+	_settings_group.visible = false
 	_explorer_group.visible = false
 	_note_group.visible = false
 	_exit_dialog.visible = false
 	if _map_group:
 		_map_group.visible = false
-	_task_label.text = " WASD 移動 | Shift 慢跑 | Space 跳 | Ctrl/C 蹲 | F 手電筒 | E 互動 | M 地圖"
+	_task_label.text = " WASD 移動 | Shift 慢跑 | Space 跳 | Ctrl/C 蹲 | F 手電筒 | E 互動 | M 地圖 | O 設定"
 	window_closed.emit()
 
 
@@ -299,7 +319,7 @@ func _build_hud() -> void:
 	task_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tb_row.add_child(task_box)
 	_task_label = Label.new()
-	_task_label.text = " WASD 移動 | Shift 慢跑 | Space 跳 | Ctrl/C 蹲 | F 手電筒 | E 互動 | M 地圖"
+	_task_label.text = " WASD 移動 | Shift 慢跑 | Space 跳 | Ctrl/C 蹲 | F 手電筒 | E 互動 | M 地圖 | O 設定"
 	_task_label.add_theme_color_override("font_color", Color.BLACK)
 	_task_label.add_theme_font_size_override("font_size", 12)
 	_task_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -647,6 +667,49 @@ func _build_overlay() -> void:
 	map_hint.add_theme_font_size_override("font_size", 12)
 	map_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	map_content.add_child(map_hint)
+
+
+func _build_settings() -> void:
+	_settings_group = CenterContainer.new()
+	_settings_group.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_settings_group.visible = false
+	_overlay.add_child(_settings_group)
+
+	var win := _create_win95_window(Vector2(420, 190), "Control Panel - 設定")
+	_settings_group.add_child(win["frame"])
+	var content: VBoxContainer = win["content"]
+
+	var box := CheckBox.new()
+	box.text = " 狂暴追獵模式"
+	box.button_pressed = frenzy_mode
+	box.add_theme_color_override("font_color", Color.BLACK)
+	box.add_theme_color_override("font_hover_color", Color.BLACK)
+	box.add_theme_color_override("font_pressed_color", Color.BLACK)
+	box.add_theme_color_override("font_hover_pressed_color", Color.BLACK)
+	box.add_theme_color_override("font_focus_color", Color.BLACK)
+	box.add_theme_font_size_override("font_size", 14)
+	box.toggled.connect(func(on: bool) -> void:
+		frenzy_mode = on
+		var cfg := ConfigFile.new()
+		cfg.load(SETTINGS_PATH)  # 檔案不存在也沒關係，保留其他可能的設定
+		cfg.set_value("monster", "frenzy_mode", on)
+		cfg.save(SETTINGS_PATH)
+	)
+	content.add_child(box)
+
+	var desc := Label.new()
+	desc.text = "怪物永遠知道你在哪裡，以超高速無止盡地追你；
+遇到完全繞不過去的阻礙會直接穿牆。"
+	desc.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	desc.add_theme_font_size_override("font_size", 12)
+	content.add_child(desc)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_END
+	content.add_child(row)
+	var ok_btn := _make_win95_button("  確定 [ O / Esc ]  ")
+	ok_btn.pressed.connect(close_popup)
+	row.add_child(ok_btn)
 
 
 func _create_win95_window(win_size: Vector2, title: String) -> Dictionary:

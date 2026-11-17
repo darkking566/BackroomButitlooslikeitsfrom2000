@@ -129,7 +129,7 @@ func _input(event: InputEvent) -> void:
 		return
 	var key_ev := event as InputEventKey
 	if _win95_ui and _win95_ui.is_popup_open():
-		if _matches_key(key_ev, KEY_ESCAPE) or _matches_key(key_ev, KEY_E) or (_matches_key(key_ev, KEY_M) and _win95_ui.is_map_open()):
+		if _matches_key(key_ev, KEY_ESCAPE) or _matches_key(key_ev, KEY_E) or (_matches_key(key_ev, KEY_M) and _win95_ui.is_map_open()) or _matches_key(key_ev, KEY_O):
 			_win95_ui.close_popup()
 			get_viewport().set_input_as_handled()
 		return
@@ -142,6 +142,10 @@ func _input(event: InputEvent) -> void:
 	elif _matches_key(key_ev, KEY_M) and _win95_ui:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_win95_ui.show_map(position, rotation.y)
+		get_viewport().set_input_as_handled()
+	elif _matches_key(key_ev, KEY_O) and _win95_ui:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		_win95_ui.show_settings()
 		get_viewport().set_input_as_handled()
 	elif _matches_key(key_ev, KEY_F) and flashlight:
 		flashlight.visible = not flashlight.visible
