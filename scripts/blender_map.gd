@@ -55,11 +55,15 @@ func _process(delta: float) -> void:
 		return
 	var t := 1.0 if w >= 1.0 else clampf(w * delta * 6.0, 0.0, 1.0)
 	var env := we.environment
-	env.fog_light_color = env.fog_light_color.lerp(Color(0.16, 0.17, 0.2), t)
+	env.fog_light_color = env.fog_light_color.lerp(Color(0.07, 0.075, 0.09), t)
 	env.fog_density = lerpf(env.fog_density, 0.01, t)
 	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.57, 0.64), t)
-	# 高層平台（y>12）附近沒有燈，環境光拉高
-	_amb = lerpf(_amb, 1.0 if player.position.y > 12.0 else 0.4, clampf(delta * 2.0, 0.0, 1.0))
+	# 環境光跟「附近有沒有亮著的燈」走：燈下 0.28，離燈 14 m 以上降到 0.05（不開手電筒幾乎看不見）；
+	# 戶外（地面層）保底 0.14 當月光
+	var base := lerpf(0.05, 0.28, _lit)
+	if player.position.y > -10.0 and player.position.y < 12.0:
+		base = maxf(base, 0.14)
+	_amb = lerpf(_amb, base, clampf(delta * 2.0, 0.0, 1.0))
 	env.ambient_light_energy = lerpf(env.ambient_light_energy, _amb, t)
 
 
@@ -207,7 +211,8 @@ var _pool: Array[OmniLight3D] = []
 var _slot_src: Array[int] = []  # 每個槽目前對應的來源索引，-1 = 閒置
 var _slot_goal: Array[float] = []
 var _scan_t := 0.0
-var _amb := 0.4
+var _amb := 0.14
+var _lit := 0.0               # 0..1：玩家離最近一盞「亮著的燈」有多近
 var _dimmed := {}              # 來源索引 -> 剩餘熄滅秒數
 
 
@@ -245,6 +250,11 @@ func _update_lights(delta: float, ppos: Vector3) -> void:
 			if d2 < r2:
 				near.append([d2, i])
 		near.sort_custom(func(a, b): return a[0] < b[0])
+		_lit = 0.0
+		for p in near:
+			if not _dimmed.has(p[1]):
+				_lit = clampf(1.0 - sqrt(p[0]) / 14.0, 0.0, 1.0)
+				break
 		if near.size() > POOL_SIZE:
 			near.resize(POOL_SIZE)
 		var want := {}
