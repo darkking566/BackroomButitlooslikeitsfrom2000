@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://cuyhh2cxchgjj" path="res://scripts/level0_variants.gd" id="11_aglw0"]
 [ext_resource type="Script" uid="uid://cup1imvsy2at6" path="res://scripts/level0_expanse.gd" id="12_w3b4y"]
 [ext_resource type="Script" uid="uid://bvkjf24rrkply" path="res://scripts/level0_tapes.gd" id="13_nyvgl"]
+[ext_resource type="Script" uid="uid://bi0owm50rd2as" path="res://scripts/level0_school.gd" id="14_36q2d"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_w3b4y"]
 
@@ -93,3 +94,6 @@ script = ExtResource("12_w3b4y")
 
 [node name="Level0Tapes" type="Node3D" parent="." unique_id=967080414]
 script = ExtResource("13_nyvgl")
+
+[node name="Level0School" type="Node3D" parent="." unique_id=2099375270]
+script = ExtResource("14_36q2d")

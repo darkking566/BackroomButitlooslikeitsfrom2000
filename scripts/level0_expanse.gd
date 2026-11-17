@@ -86,8 +86,10 @@ func _process(delta: float) -> void:
 	if Engine.is_editor_hint() or not _world_env or not _world_env.environment:
 		return
 	if _active_zone == "":
-		if _fade_t <= 0.0:
-			return # 不在本腳本的區域內：交給其他區域腳本控制環境
+		# 不在本腳本的區域內（或已有另一個擴建腳本接手）：不要去拉環境
+		if _fade_t <= 0.0 or get_parent().get_meta("l0_zone_owner", self) != self:
+			_fade_t = 0.0
+			return
 		_fade_t -= delta
 	var p := _zone_env(_active_zone)
 	var t := clampf(delta * 2.5, 0.0, 1.0)
@@ -117,6 +119,9 @@ func _set_zone(z: String) -> void:
 	_active_zone = z
 	if z == "":
 		_fade_t = 2.0
+	else:
+		_fade_t = 0.0
+		get_parent().set_meta("l0_zone_owner", self) # 相鄰擴建腳本之間不重複漸變
 
 
 func _make_roots(prefix: String) -> void:

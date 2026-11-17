@@ -270,11 +270,12 @@ func _build_lobby() -> void:
 	_slab(x1, z1, x2, z2, 4.2, _m_white)
 	_wall(true, z1, x1, x2, 0.0, 4.0, _m_teal, [Vector4(8.0, 10.0, 0.0, 2.6)])
 	_wall(false, x1, z1, z2, 0.0, 4.0, _m_teal, [Vector4(96.0, 99.0, 0.0, 2.8)])
-	_wall(false, x2, z1, z2, 0.0, 4.0, _m_teal)
+	_wall(false, x2, z1, z2, 0.0, 4.0, _m_teal, [Vector4(97.0, 100.0, 0.0, 2.6)]) # → 校舍翼
 	_wall(true, z2, x1, x2, 0.0, 4.0, _m_teal, [Vector4(14.0, 17.0, 0.0, 2.6)])
 	# 色塊：牆下半段藍色
 	_box(Vector3(14.0, 0.6, 94.17), Vector3(24.0, 1.2, 0.04), _m_blue, false)
-	_box(Vector3(25.83, 0.6, 103.5), Vector3(0.04, 1.2, 19.0), _m_blue, false)
+	_box(Vector3(25.83, 0.6, 95.25), Vector3(0.04, 1.2, 2.5), _m_blue, false)
+	_box(Vector3(25.83, 0.6, 106.75), Vector3(0.04, 1.2, 12.5), _m_blue, false)
 	_box(Vector3(14.0, 0.01, 111.3), Vector3(24.0, 0.02, 0.6), _m_blue, false) # 地面藍色色帶
 	# 可走進去的藍色量體
 	_wall(true, 100.0, 12.0, 20.0, 0.0, 3.0, _m_blue, [Vector4(14.5, 17.5, 0.0, 2.5)])
@@ -316,7 +317,7 @@ func _build_loft() -> void:
 	_slab(x1, z1, x2, z2, 9.2, _m_white)
 	_wall(true, z1, x1, x2, 0.0, 9.0, _m_white, [Vector4(14.0, 17.0, 0.0, 2.6)])
 	_wall(false, x1, z1, z2, 0.0, 9.0, _m_white, [Vector4(121.0, 124.0, 0.0, 2.8)])
-	_wall(false, x2, z1, z2, 0.0, 9.0, _m_white, [Vector4(120.0, 136.0, 5.5, 8.0)])
+	_wall(false, x2, z1, z2, 0.0, 9.0, _m_white, [Vector4(120.0, 136.0, 5.5, 8.0), Vector4(139.5, 142.5, 0.0, 2.6)])
 	# 南牆：下樓梯口 x[4..8]、夾層接回程走道 x[8..12]
 	_wall(true, z2, x1, x2, -2.0, 11.0, _m_white, [Vector4(4.0, 8.0, -2.0, 3.8), Vector4(8.0, 12.0, 4.0, 7.0)])
 	# 高窗：藍框 + 發光淡藍玻璃
@@ -429,7 +430,7 @@ func _build_tape_props() -> void:
 	_prop("trashcan", Vector3(25.4, 0.0, 94.6))
 	_prop("plant", Vector3(25.0, 0.0, 112.0))
 	# 挑高廳與夾層
-	_prop("ladder", Vector3(25.75, 0.0, 140.0), 90.0)
+	_prop("ladder", Vector3(25.75, 0.0, 144.5), 90.0)
 	for cx in [-2.5, -1.8, -1.1]:
 		_prop("chair", Vector3(cx, 0.0, 119.0), 0.0)
 	_prop("cardboard_boxes", Vector3(24.5, 4.0, 145.0), 20.0)
