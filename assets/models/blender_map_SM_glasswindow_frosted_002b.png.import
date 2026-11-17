@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5mqbq2iigsiv"
+uid="uid://dqqnm7lun3uct"
 path.s3tc="res://.godot/imported/blender_map_SM_glasswindow_frosted_002b.png-ddbdb75762484a4f8d13eda22c551f75.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "8456212038ab13e49fe5d4666f0e31eb"
+"md5": "e79cc5036bf99200ded028ac37ed8782"
 }
 
 [deps]

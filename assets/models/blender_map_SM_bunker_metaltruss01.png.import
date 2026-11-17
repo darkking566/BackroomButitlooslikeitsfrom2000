@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bek8ioiyx3vlb"
+uid="uid://20mw1v47l81i"
 path.s3tc="res://.godot/imported/blender_map_SM_bunker_metaltruss01.png-ae7046c6b6f3958038ec1655e93b9f7d.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "982695b7293634aa916e1ad66bb5b559"
+"md5": "dfffb76a0257c370bf8790102df7c2cf"
 }
 
 [deps]

@@ -23,4 +23,4 @@
 | trashcan.glb | Trashcan Small | Quaternius | https://poly.pizza/m/i7HDuYDLkx |
 
 ## blender_map.glb
-User-supplied Blender import of the Garry's Mod map gm_br_pitfalls (textures downscaled to 256px). Third-party content: check the original map license before publishing the game.
+User-supplied Blender import of the Garry's Mod map gm_br_pitfalls (textures downscaled to 128px PNG, normal maps dropped; 2274 Source lights exported to blender_map_lights.json). Third-party content: check the original map license before publishing the game.

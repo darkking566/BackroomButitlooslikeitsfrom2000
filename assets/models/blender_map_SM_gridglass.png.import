@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://df5wtoj1rev6o"
+uid="uid://c108kdhhtdjph"
 path.s3tc="res://.godot/imported/blender_map_SM_gridglass.png-d196dcda0ac7285d41ce48f4540162e5.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "ae72a284bcce3bacc29bb9c64b05cdf8"
+"md5": "445baac9a871e620648dae5562f67793"
 }
 
 [deps]
