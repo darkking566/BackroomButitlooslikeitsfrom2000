@@ -238,7 +238,7 @@ func _build_hub(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 
 	_add_note(props, "HubSign", Vector3(-16.9, 1.45, 38.65), 0.0,
 		"閱讀牆上的探索指引", "M.E.G. 勘查路標",
-		"【Level 0 變體交匯處】\n"
+		"【閾界 變體交匯處】\n"
 		+ "• 往西：拱門變體（空間穩定，可喘息）\n"
 		+ "• 往西南：柱廳變體（極易迷失）\n"
 		+ "• 往東：深坑變體（小心腳下！）→ 再往南：熄燈區\n"
@@ -643,7 +643,7 @@ func _add_almond_water(props: Node3D, node_name: String, pos: Vector3) -> void:
 	body.set("file_name", "杏仁水")
 	body.set("body_text",
 		"【物資：杏仁水 (Almond Water)】\n\n"
-		+ "散發著微弱甜香的瓶裝液體，是在 Level 0 熬過長期迷失與脫水的救命物資。\n"
+		+ "散發著微弱甜香的瓶裝液體，是在閾界熬過長期迷失與脫水的救命物資。\n"
 		+ "（注意：切勿飲用地毯裡擠出的受污染液體！）"
 	)
 	props.add_child(body)
@@ -707,7 +707,7 @@ func _add_flickering_exit_wall(props: Node3D, pos: Vector3) -> void:
 	body.name = "FlickeringWallExit"
 	body.position = pos
 	body.set_script(INTERACT_SCRIPT)
-	body.set("prompt_text", "投入閃爍的牆壁（切出至 Level 1）")
+	body.set("prompt_text", "投入閃爍的牆壁（前往「宜居地帶」）")
 	body.set("interaction_type", "level1_exit")
 	props.add_child(body)
 

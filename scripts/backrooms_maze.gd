@@ -174,10 +174,10 @@ func _populate_props(props_root: Node3D, half_x: float, half_z: float) -> void:
 	)
 	_spawn_chair(props_root, "Chair_41", desk2_pos + Vector3(0.2, 0.0, 0.95), 25.0)
 
-	# 2b. M.E.G. Level 0 Wiki Archive Terminal in Office Suite (6.8, 16.0)
+	# 2b. M.E.G. Wiki Archive Terminal in Office Suite (6.8, 16.0)
 	var desk_meg_pos := _grid_to_world(6.8, 16.0, half_x, half_z)
 	_spawn_desk(props_root, "OfficeDesk_MEG", desk_meg_pos, 0.0, true,
-		"瀏覽 M.E.G. Level 0 檔案庫", "M.E.G. Archive - Level 0", "00_Level0_檔案.txt", "4.2kb", ""
+		"瀏覽 M.E.G.「閾界」檔案庫", "M.E.G. Archive - 閾界", "00_閾界_檔案.txt", "4.2kb", ""
 	)
 	var meg_desk := props_root.get_node_or_null("OfficeDesk_MEG")
 	if meg_desk:

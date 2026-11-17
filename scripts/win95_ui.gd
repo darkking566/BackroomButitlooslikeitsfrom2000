@@ -39,6 +39,7 @@ var _note_body: RichTextLabel
 
 var _exit_dialog: PanelContainer
 var _exit_body: Label
+var _btn_enter_next: Button
 
 var _map_group: Control
 var _map_canvas: Control
@@ -102,7 +103,7 @@ func show_wiki_archive() -> void:
 	_note_group.visible = false
 	_exit_dialog.visible = false
 
-	var win_title := "M.E.G. Archive - Level 0 (Wiki)"
+	var win_title := "M.E.G. Archive - 閾界 (Wiki)"
 	_left_title_label.text = " " + win_title
 	_clear_file_list()
 
@@ -186,6 +187,8 @@ func show_exit_dialog(found_pc: bool, elapsed_sec: float) -> void:
 	_note_group.visible = false
 	_exit_dialog.visible = true
 
+	if _btn_enter_next:
+		_btn_enter_next.visible = false
 	var mins := int(elapsed_sec) / 60
 	var secs := int(elapsed_sec) % 60
 	var pc_status := "已讀取 (Memory 43)" if found_pc else "未讀取 (可回黃色走廊電腦查看)"
@@ -208,14 +211,18 @@ func show_level1_exit(elapsed_sec: float) -> void:
 	if _map_group:
 		_map_group.visible = false
 
+	if _btn_enter_next:
+		_btn_enter_next.visible = false
+	if _btn_enter_next:
+		_btn_enter_next.visible = true
 	var mins := int(elapsed_sec) / 60
 	var secs := int(elapsed_sec) % 60
 	_exit_body.text = (
-		"你縱身投入了閃爍的牆壁，成功切出 Level 0！\n"
+		"你縱身投入了閃爍的牆壁，成功切出「閾界」！\n"
 		+ "（存活時間：%02d 分 %02d 秒）\n\n" % [mins, secs]
-		+ "「既然你走到了這一步，便意味著你已跨過了那道閾界——歡迎來到後室（Level 1）。」"
+		+ "「既然你走到了這一步，便意味著你已跨過了那道閾界——前方就是『宜居地帶』。」"
 	)
-	_task_label.text = " Noclip Detected - Level 1"
+	_task_label.text = " Noclip Detected - 宜居地帶"
 
 
 func show_map(player_pos: Vector3, player_yaw: float) -> void:
@@ -227,7 +234,7 @@ func show_map(player_pos: Vector3, player_yaw: float) -> void:
 	_exit_dialog.visible = false
 	_map_group.visible = true
 	_map_canvas.set_player(player_pos, player_yaw)
-	_task_label.text = " M.E.G. Level 0 導航地圖與快速傳送"
+	_task_label.text = " M.E.G. 閾界導航地圖與快速傳送"
 
 
 func show_settings() -> void:
@@ -508,6 +515,14 @@ func _build_overlay() -> void:
 	btn_row.add_theme_constant_override("separation", 10)
 	exit_content.add_child(btn_row)
 
+	_btn_enter_next = _make_win95_button(" 前往「宜居地帶」 ")
+	_btn_enter_next.visible = false
+	_btn_enter_next.pressed.connect(func():
+		close_popup()
+		get_tree().change_scene_to_file("res://scenes/habitable_zone.tscn")
+	)
+	btn_row.add_child(_btn_enter_next)
+
 	var btn_continue := _make_win95_button(" 繼續探索 ")
 	btn_continue.pressed.connect(close_popup)
 	btn_row.add_child(btn_continue)
@@ -525,7 +540,7 @@ func _build_overlay() -> void:
 	_map_group.visible = false
 	_overlay.add_child(_map_group)
 
-	var map_win := _create_win95_window(Vector2(760, 480), "M.E.G. Map & Fast Travel - Level 0")
+	var map_win := _create_win95_window(Vector2(760, 480), "M.E.G. Map & Fast Travel - 閾界")
 	_map_group.add_child(map_win["frame"])
 	var map_content: VBoxContainer = map_win["content"]
 
@@ -559,6 +574,21 @@ func _build_overlay() -> void:
 	tp_list.add_theme_constant_override("separation", 4)
 	tp_scroll.add_child(tp_list)
 
+	var btn_layer_switch := _make_win95_button(" → 切換層級：前往「宜居地帶」 ")
+	var cur_scene := get_tree().current_scene
+	if cur_scene and cur_scene.scene_file_path.ends_with("habitable_zone.tscn"):
+		btn_layer_switch.text = " ← 切換層級：返回「閾界」 "
+		btn_layer_switch.pressed.connect(func():
+			close_popup()
+			get_tree().change_scene_to_file("res://scenes/backrooms_level0_test.tscn")
+		)
+	else:
+		btn_layer_switch.pressed.connect(func():
+			close_popup()
+			get_tree().change_scene_to_file("res://scenes/habitable_zone.tscn")
+		)
+	tp_list.add_child(btn_layer_switch)
+
 	var tp_hdr := Label.new()
 	tp_hdr.text = " 點擊區域立即傳送："
 	tp_hdr.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
@@ -573,7 +603,7 @@ func _build_overlay() -> void:
 		{"name": "5. 柱廳變體（Pillars）", "pos": Vector3(-23.2, 0.05, 58.1), "yaw": PI},
 		{"name": "6. 深坑變體（Pitfalls）", "pos": Vector3(5.5, 0.05, 42.5), "yaw": -PI * 0.5},
 		{"name": "7. 熄燈區（Blackout）", "pos": Vector3(15.0, 0.05, 58.5), "yaw": PI},
-		{"name": "8. 閃爍牆壁出口 (Lv1)", "pos": Vector3(23.5, 0.05, 77.5), "yaw": PI},
+		{"name": "8. 閃爍牆壁出口（往宜居地帶）", "pos": Vector3(23.5, 0.05, 77.5), "yaw": PI},
 		{"name": "9. 紅室前緣（警告區）", "pos": Vector3(-3.0, 0.05, 54.0), "yaw": PI},
 		{"name": "10. 紅室深處（死循環）", "pos": Vector3(-2.6, 0.05, 70.0), "yaw": PI},
 		{"name": "11. Zone 2 過渡大廳", "pos": Vector3(21.0, 0.05, 7.8), "yaw": -PI * 0.5},
@@ -892,7 +922,7 @@ class MapCanvas extends Control:
 
 	func _draw() -> void:
 		_draw_zone(-87.1, -32.5, -32.5, 32.5, Color(0.42, 0.39, 0.19, 0.85), "西側迷宮")
-		_draw_zone(-32.5, -32.5, 32.5, 32.5, Color(0.62, 0.57, 0.25, 0.9), "Level 0 主迷宮")
+		_draw_zone(-32.5, -32.5, 32.5, 32.5, Color(0.62, 0.57, 0.25, 0.9), "閾界 主迷宮")
 		_draw_zone(32.5, -2.0, 56.0, 16.0, Color(0.32, 0.36, 0.42, 0.9), "Zone 2")
 		_draw_zone(32.5, -37.0, 71.0, -1.5, Color(0.28, 0.40, 0.18, 0.9), "Zone 3")
 		_draw_zone(-24.0, 38.5, 4.0, 46.5, Color(0.55, 0.50, 0.22, 0.95), "交匯處")
