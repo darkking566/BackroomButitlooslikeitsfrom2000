@@ -18,6 +18,48 @@ func _ready() -> void:
 	inst.position = ORIGIN
 	add_child(inst)
 	_add_collision(inst)
+	# 去程：校舍翼空房北牆（x78, z196）；回程：地圖街道起點背後
+	_make_door(Vector3(78.0, -2.0, 195.85), "推開藍色的門（前往另一個地方）", ORIGIN + Vector3(0, 1.4, 0), -0.6)
+	_make_door(ORIGIN + Vector3(0, 1.3, 3.0), "推開藍色的門（回到 Level 0）", Vector3(78.0, -1.95, 191.5), 0.0)
+
+
+# 發光藍色門板 + 門框；E 互動 → portal 傳送
+func _make_door(pos: Vector3, prompt: String, target: Vector3, yaw: float) -> void:
+	var body := StaticBody3D.new()
+	body.position = pos
+	body.set_script(load("res://scripts/interactable_prop.gd"))
+	body.set("prompt_text", prompt)
+	body.set("interaction_type", "portal")
+	body.set("portal_pos", target)
+	body.set("portal_yaw", yaw)
+	add_child(body)
+	var slab := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.4, 2.3, 0.1)
+	slab.mesh = bm
+	slab.position.y = 1.15
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.25, 0.45, 0.9)
+	m.emission_enabled = true
+	m.emission = Color(0.3, 0.5, 1.0)
+	m.emission_energy_multiplier = 1.4
+	slab.material_override = m
+	body.add_child(slab)
+	var frame := MeshInstance3D.new()
+	var fm := BoxMesh.new()
+	fm.size = Vector3(1.7, 2.5, 0.06)
+	frame.mesh = fm
+	frame.position = Vector3(0, 1.25, 0.03)
+	var m2 := StandardMaterial3D.new()
+	m2.albedo_color = Color(0.1, 0.1, 0.12)
+	frame.material_override = m2
+	body.add_child(frame)
+	var col := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(1.4, 2.3, 0.3)
+	col.shape = sh
+	col.position.y = 1.15
+	body.add_child(col)
 
 
 # 進入本地圖後接管環境（霧淡、環境光偏冷）；離開後交還給 Level0 的區域腳本

@@ -80,6 +80,9 @@ func _on_teleport_requested(target_pos: Vector3, yaw_rad: float) -> void:
 
 
 func open_prop_ui(prop: Node) -> void:
+	if prop.get("interaction_type") == "portal":
+		_on_teleport_requested(prop.get("portal_pos"), prop.get("portal_yaw"))
+		return
 	if not _win95_ui:
 		return
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
