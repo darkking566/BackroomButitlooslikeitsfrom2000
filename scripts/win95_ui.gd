@@ -4,6 +4,7 @@ const Level0WikiData := preload("res://scripts/level0_wiki_data.gd")
 
 signal window_closed
 signal restart_requested
+signal teleport_requested(target_pos: Vector3, yaw_rad: float)
 
 const COL_BG := Color(0.753, 0.753, 0.753)       # #C0C0C0
 const COL_LIGHT := Color(1.0, 1.0, 1.0)          # #FFFFFF
@@ -39,6 +40,9 @@ var _note_body: RichTextLabel
 var _exit_dialog: PanelContainer
 var _exit_body: Label
 
+var _map_group: Control
+var _map_canvas: Control
+
 var _is_open: bool = false
 
 
@@ -51,6 +55,10 @@ func _ready() -> void:
 
 func is_popup_open() -> bool:
 	return _is_open
+
+
+func is_map_open() -> bool:
+	return _is_open and _map_group != null and _map_group.visible
 
 
 func set_prompt(text: String) -> void:
@@ -189,6 +197,8 @@ func show_level1_exit(elapsed_sec: float) -> void:
 	_explorer_group.visible = false
 	_note_group.visible = false
 	_exit_dialog.visible = true
+	if _map_group:
+		_map_group.visible = false
 
 	var mins := int(elapsed_sec) / 60
 	var secs := int(elapsed_sec) % 60
@@ -200,6 +210,18 @@ func show_level1_exit(elapsed_sec: float) -> void:
 	_task_label.text = " Noclip Detected - Level 1"
 
 
+func show_map(player_pos: Vector3, player_yaw: float) -> void:
+	_is_open = true
+	_prompt_panel.visible = false
+	_overlay.visible = true
+	_explorer_group.visible = false
+	_note_group.visible = false
+	_exit_dialog.visible = false
+	_map_group.visible = true
+	_map_canvas.set_player(player_pos, player_yaw)
+	_task_label.text = " M.E.G. Level 0 導航地圖與快速傳送"
+
+
 func close_popup() -> void:
 	if not _is_open:
 		return
@@ -208,7 +230,9 @@ func close_popup() -> void:
 	_explorer_group.visible = false
 	_note_group.visible = false
 	_exit_dialog.visible = false
-	_task_label.text = " WASD 移動 | Shift 慢跑 | F 手電筒 | E 互動 | Esc 滑鼠"
+	if _map_group:
+		_map_group.visible = false
+	_task_label.text = " WASD 移動 | Shift 慢跑 | F 手電筒 | E 互動 | M 地圖傳送 | Esc 滑鼠"
 	window_closed.emit()
 
 
@@ -275,7 +299,7 @@ func _build_hud() -> void:
 	task_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tb_row.add_child(task_box)
 	_task_label = Label.new()
-	_task_label.text = " WASD 移動 | Shift 慢跑 | F 手電筒 | E 互動 | Esc 滑鼠"
+	_task_label.text = " WASD 移動 | Shift 慢跑 | F 手電筒 | E 互動 | M 地圖傳送 | Esc 滑鼠"
 	_task_label.add_theme_color_override("font_color", Color.BLACK)
 	_task_label.add_theme_font_size_override("font_size", 12)
 	_task_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -475,6 +499,84 @@ func _build_overlay() -> void:
 	)
 	btn_row.add_child(btn_restart)
 
+	# --- 4. M.E.G. Overview Map & Fast Travel Window ---
+	_map_group = CenterContainer.new()
+	_map_group.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_group.visible = false
+	_overlay.add_child(_map_group)
+
+	var map_win := _create_win95_window(Vector2(760, 480), "M.E.G. Map & Fast Travel - Level 0")
+	_map_group.add_child(map_win["frame"])
+	var map_content: VBoxContainer = map_win["content"]
+
+	var map_hbox := HBoxContainer.new()
+	map_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map_hbox.add_theme_constant_override("separation", 8)
+	map_content.add_child(map_hbox)
+
+	var map_frame := PanelContainer.new()
+	map_frame.add_theme_stylebox_override("panel", _make_sunken_box(Color(0.08, 0.09, 0.08)))
+	map_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map_hbox.add_child(map_frame)
+
+	_map_canvas = MapCanvas.new()
+	_map_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_map_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map_frame.add_child(_map_canvas)
+
+	var tp_panel := PanelContainer.new()
+	tp_panel.custom_minimum_size = Vector2(235, 0)
+	tp_panel.add_theme_stylebox_override("panel", _make_sunken_box(COL_LIGHT))
+	map_hbox.add_child(tp_panel)
+
+	var tp_scroll := ScrollContainer.new()
+	tp_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tp_panel.add_child(tp_scroll)
+
+	var tp_list := VBoxContainer.new()
+	tp_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tp_list.add_theme_constant_override("separation", 4)
+	tp_scroll.add_child(tp_list)
+
+	var tp_hdr := Label.new()
+	tp_hdr.text = " 點擊區域立即傳送："
+	tp_hdr.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	tp_hdr.add_theme_font_size_override("font_size", 13)
+	tp_list.add_child(tp_hdr)
+
+	var waypoints: Array[Dictionary] = [
+		{"name": "1. 起點（黃色走廊）", "pos": Vector3(-26.0, 0.05, 18.2), "yaw": -PI * 0.5},
+		{"name": "2. M.E.G. 檔案終端機", "pos": Vector3(-13.5, 0.05, 12.2), "yaw": 0.0},
+		{"name": "3. 變體交匯處（地毯）", "pos": Vector3(-16.0, 0.05, 42.5), "yaw": PI},
+		{"name": "4. 拱門變體（Arches）", "pos": Vector3(-32.0, 0.05, 44.5), "yaw": 0.0},
+		{"name": "5. 柱廳變體（Pillars）", "pos": Vector3(-23.2, 0.05, 58.1), "yaw": PI},
+		{"name": "6. 深坑變體（Pitfalls）", "pos": Vector3(5.5, 0.05, 42.5), "yaw": -PI * 0.5},
+		{"name": "7. 熄燈區（Blackout）", "pos": Vector3(15.0, 0.05, 58.5), "yaw": PI},
+		{"name": "8. 閃爍牆壁出口 (Lv1)", "pos": Vector3(23.5, 0.05, 77.5), "yaw": PI},
+		{"name": "9. 紅室前緣（警告區）", "pos": Vector3(-3.0, 0.05, 54.0), "yaw": PI},
+		{"name": "10. 紅室深處（死循環）", "pos": Vector3(-2.6, 0.05, 70.0), "yaw": PI},
+		{"name": "11. Zone 2 過渡大廳", "pos": Vector3(21.0, 0.05, 7.8), "yaw": -PI * 0.5},
+		{"name": "12. Zone 3 綠廳", "pos": Vector3(51.6, 0.05, -4.5), "yaw": 0.0},
+	]
+	for wp in waypoints:
+		var btn := _make_win95_button(" " + wp["name"])
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var t_pos: Vector3 = wp["pos"]
+		var t_yaw: float = wp["yaw"]
+		btn.pressed.connect(func() -> void:
+			close_popup()
+			teleport_requested.emit(t_pos, t_yaw)
+		)
+		tp_list.add_child(btn)
+
+	var map_hint := Label.new()
+	map_hint.text = "紅點 = 目前位置 | 按 [ M ] / [ Esc ] 關閉地圖"
+	map_hint.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	map_hint.add_theme_font_size_override("font_size", 12)
+	map_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	map_content.add_child(map_hint)
+
 
 func _create_win95_window(win_size: Vector2, title: String) -> Dictionary:
 	var frame := PanelContainer.new()
@@ -590,3 +692,56 @@ func _make_solid_box(fill: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fill
 	return sb
+
+
+class MapCanvas extends Control:
+	var _player_pos := Vector3.ZERO
+	var _player_yaw: float = 0.0
+
+	func set_player(pos: Vector3, yaw: float) -> void:
+		_player_pos = pos
+		_player_yaw = yaw
+		queue_redraw()
+
+	func _world_to_map(wx: float, wz: float) -> Vector2:
+		# World bounds: x [-90 .. +75], z [-40 .. +98]
+		var nx := (wx + 90.0) / 165.0
+		var nz := (wz + 40.0) / 138.0
+		var pad := 14.0
+		var w := size.x - pad * 2.0
+		var h := size.y - pad * 2.0
+		var scale := minf(w, h)
+		var ox := (size.x - scale * (165.0 / 138.0)) * 0.5
+		if scale * (165.0 / 138.0) > w:
+			scale = w / (165.0 / 138.0)
+			ox = pad
+		var oy := (size.y - scale) * 0.5
+		return Vector2(ox + nx * scale * (165.0 / 138.0), oy + nz * scale)
+
+	func _draw_zone(x1: float, z1: float, x2: float, z2: float, fill: Color, label: String) -> void:
+		var p1 := _world_to_map(x1, z1)
+		var p2 := _world_to_map(x2, z2)
+		var rect := Rect2(p1, p2 - p1)
+		draw_rect(rect, fill, true)
+		draw_rect(rect, Color(0.85, 0.85, 0.85, 0.45), false, 1.0)
+		if not label.is_empty():
+			draw_string(ThemeDB.fallback_font, p1 + Vector2(4, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.95, 0.95))
+
+	func _draw() -> void:
+		_draw_zone(-87.1, -32.5, -32.5, 32.5, Color(0.42, 0.39, 0.19, 0.85), "西側迷宮")
+		_draw_zone(-32.5, -32.5, 32.5, 32.5, Color(0.62, 0.57, 0.25, 0.9), "Level 0 主迷宮")
+		_draw_zone(32.5, -2.0, 56.0, 16.0, Color(0.32, 0.36, 0.42, 0.9), "Zone 2")
+		_draw_zone(32.5, -37.0, 71.0, -1.5, Color(0.28, 0.40, 0.18, 0.9), "Zone 3")
+		_draw_zone(-24.0, 38.5, 4.0, 46.5, Color(0.55, 0.50, 0.22, 0.95), "交匯處")
+		_draw_zone(-44.0, 34.5, -24.0, 50.5, Color(0.76, 0.74, 0.62, 0.95), "拱門")
+		_draw_zone(-36.0, 50.5, -10.0, 76.5, Color(0.52, 0.47, 0.22, 0.95), "柱廳")
+		_draw_zone(4.0, 34.5, 26.0, 56.5, Color(0.35, 0.32, 0.16, 0.95), "深坑")
+		_draw_zone(4.0, 56.5, 26.0, 80.5, Color(0.10, 0.10, 0.12, 0.98), "熄燈區")
+		_draw_zone(-8.0, 50.5, 2.0, 62.5, Color(0.52, 0.22, 0.16, 0.95), "紅前")
+		_draw_zone(-8.0, 62.5, 2.0, 92.5, Color(0.65, 0.08, 0.07, 0.95), "紅室")
+
+		var pm := _world_to_map(_player_pos.x, _player_pos.z)
+		var fwd := Vector2(-sin(_player_yaw), -cos(_player_yaw))
+		draw_line(pm, pm + fwd * 14.0, Color(0.2, 1.0, 1.0), 2.0)
+		draw_circle(pm, 4.5, Color(1.0, 0.2, 0.2))
+		draw_arc(pm, 5.5, 0.0, TAU, 16, Color.WHITE, 1.2)

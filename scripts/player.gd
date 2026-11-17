@@ -41,6 +41,7 @@ func _ready() -> void:
 	if _win95_ui:
 		_win95_ui.window_closed.connect(_on_ui_closed)
 		_win95_ui.restart_requested.connect(_on_restart_requested)
+		_win95_ui.teleport_requested.connect(_on_teleport_requested)
 	_capture_mouse()
 
 
@@ -61,6 +62,20 @@ func _on_restart_requested() -> void:
 	velocity = Vector3.ZERO
 	_elapsed_time = 0.0
 	_found_pc_clue = false
+	_capture_mouse()
+
+
+func _on_teleport_requested(target_pos: Vector3, yaw_rad: float) -> void:
+	var variants := get_parent().get_node_or_null("Level0Variants")
+	if variants and variants.has_method("_set_active_zone"):
+		variants._set_active_zone("")
+	position = target_pos
+	rotation = Vector3(0.0, yaw_rad, 0.0)
+	_pitch = 0.0
+	head.rotation.x = 0.0
+	if camera:
+		camera.rotation.z = 0.0
+	velocity = Vector3.ZERO
 	_capture_mouse()
 
 
@@ -97,7 +112,7 @@ func _input(event: InputEvent) -> void:
 		return
 	var key_ev := event as InputEventKey
 	if _win95_ui and _win95_ui.is_popup_open():
-		if _matches_key(key_ev, KEY_ESCAPE) or _matches_key(key_ev, KEY_E):
+		if _matches_key(key_ev, KEY_ESCAPE) or _matches_key(key_ev, KEY_E) or (_matches_key(key_ev, KEY_M) and _win95_ui.is_map_open()):
 			_win95_ui.close_popup()
 			get_viewport().set_input_as_handled()
 		return
@@ -107,6 +122,10 @@ func _input(event: InputEvent) -> void:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		else:
 			_capture_mouse()
+	elif _matches_key(key_ev, KEY_M) and _win95_ui:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		_win95_ui.show_map(position, rotation.y)
+		get_viewport().set_input_as_handled()
 	elif _matches_key(key_ev, KEY_F) and flashlight:
 		flashlight.visible = not flashlight.visible
 	elif _matches_key(key_ev, KEY_E) and _current_target and _current_target.has_method("interact"):
