@@ -10,10 +10,10 @@ const MAT_WET_FLOOR := preload("res://materials/mat_wet_floor.tres")
 const MAT_VENT_GRILL := preload("res://materials/mat_vent_grill.tres")
 const INTERACT_SCRIPT := preload("res://scripts/interactable_prop.gd")
 
-const LEVEL0_FOG_COLOR := Color(0.50, 0.47, 0.27)
+const LEVEL0_FOG_COLOR := Color(0.32, 0.29, 0.16)
 const LEVEL0_FOG_DENSITY := 0.085
-const LEVEL0_AMBIENT_COLOR := Color(0.65, 0.60, 0.38)
-const LEVEL0_AMBIENT_ENERGY := 0.38
+const LEVEL0_AMBIENT_COLOR := Color(0.55, 0.50, 0.30)
+const LEVEL0_AMBIENT_ENERGY := 0.10
 const LEVEL0_HUM_DB := -15.5
 
 var _active_zone: String = ""
@@ -148,21 +148,21 @@ func _process(delta: float) -> void:
 
 	match _active_zone:
 		"blackout":
-			target_fog = Color(0.03, 0.03, 0.03)
-			target_density = 0.16
-			target_amb = Color(0.05, 0.05, 0.05)
-			target_amb_e = 0.12
+			target_fog = Color(0.01, 0.01, 0.01)
+			target_density = 0.18
+			target_amb = Color(0.02, 0.02, 0.02)
+			target_amb_e = 0.015
 			target_hum = -60.0
 		"red_warn":
-			target_fog = Color(0.45, 0.22, 0.16)
+			target_fog = Color(0.36, 0.14, 0.10)
 			target_density = 0.10
-			target_amb = Color(0.60, 0.28, 0.20)
-			target_amb_e = 0.36
+			target_amb = Color(0.45, 0.18, 0.12)
+			target_amb_e = 0.14
 		"red_deep":
-			target_fog = Color(0.32, 0.03, 0.02)
+			target_fog = Color(0.24, 0.02, 0.01)
 			target_density = 0.12
-			target_amb = Color(0.55, 0.08, 0.06)
-			target_amb_e = 0.42
+			target_amb = Color(0.42, 0.05, 0.04)
+			target_amb_e = 0.18
 			target_hum = -11.0
 			target_roll = deg_to_rad(3.5)
 

@@ -48,6 +48,8 @@ func _ready() -> void:
 		collision_shape.shape = _capsule
 	if flashlight:
 		flashlight.visible = false
+		flashlight.light_energy = 4.2
+		flashlight.spot_range = 22.0
 	if footstep_player:
 		footstep_player.stream = BackroomsAudio.create_carpet_footstep_stream()
 		_default_step = footstep_player.stream

@@ -25,11 +25,11 @@ sky_material = SubResource("ProceduralSkyMaterial_w3b4y")
 background_mode = 2
 sky = SubResource("Sky_nyvgl")
 ambient_light_source = 2
-ambient_light_color = Color(0.65, 0.6, 0.38, 1)
-ambient_light_energy = 0.38
+ambient_light_color = Color(0.55, 0.5, 0.3, 1)
+ambient_light_energy = 0.1
 tonemap_mode = 2
 fog_enabled = true
-fog_light_color = Color(0.5, 0.47, 0.27, 1)
+fog_light_color = Color(0.32, 0.29, 0.16, 1)
 fog_density = 0.085
 
 [node name="BackroomsTest" type="Node3D" unique_id=2000596382]

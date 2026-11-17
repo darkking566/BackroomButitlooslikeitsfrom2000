@@ -10,10 +10,10 @@ const MAT_MAGENTA_RING := preload("res://materials/mat_magenta_ring.tres")
 const MAT_VENT_GRILL := preload("res://materials/mat_vent_grill.tres")
 const INTERACT_SCRIPT := preload("res://scripts/interactable_prop.gd")
 
-const LEVEL0_FOG_COLOR := Color(0.50, 0.47, 0.27)
-const ZONE2_FOG_COLOR := Color(0.28, 0.30, 0.33)
-const LEVEL0_AMBIENT_COLOR := Color(0.65, 0.60, 0.38)
-const ZONE2_AMBIENT_COLOR := Color(0.45, 0.48, 0.52)
+const LEVEL0_FOG_COLOR := Color(0.32, 0.29, 0.16)
+const ZONE2_FOG_COLOR := Color(0.18, 0.20, 0.23)
+const LEVEL0_AMBIENT_COLOR := Color(0.55, 0.50, 0.30)
+const ZONE2_AMBIENT_COLOR := Color(0.32, 0.35, 0.40)
 
 var _in_zone2: bool = false
 var _blend: float = 0.0
