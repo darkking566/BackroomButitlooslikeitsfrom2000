@@ -590,9 +590,8 @@ func _build_overlay() -> void:
 		{"name": "42. Blender 地圖：地底迴廊", "pos": Vector3(217.0, -97.65, 241.0), "yaw": 0.0},
 		{"name": "43. Blender 地圖：三層疊樓（中層）", "pos": Vector3(292.0, -98.25, 229.0), "yaw": 0.0},
 		{"name": "44. Blender 地圖：地底深處（-100 層）", "pos": Vector3(250.0, -101.3, 127.0), "yaw": 0.0},
-		{"name": "45. Blender 地圖：最底層（-186）", "pos": Vector3(151.0, -186.05, 187.0), "yaw": 0.0},
-		{"name": "46. Blender 地圖：高層平台（南段）", "pos": Vector3(127.0, 18.8, 48.0), "yaw": 0.0},
-		{"name": "47. Blender 地圖：高層平台（北段）", "pos": Vector3(124.0, 18.8, 289.0), "yaw": 0.0},
+		{"name": "45. Blender 地圖：高層平台（南段）", "pos": Vector3(127.0, 18.8, 48.0), "yaw": 0.0},
+		{"name": "46. Blender 地圖：高層平台（北段）", "pos": Vector3(124.0, 18.8, 289.0), "yaw": 0.0},
 	]
 	for wp in waypoints:
 		var btn := _make_win95_button(" " + wp["name"])

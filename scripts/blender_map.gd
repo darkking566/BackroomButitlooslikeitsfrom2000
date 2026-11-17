@@ -49,8 +49,8 @@ func _process(delta: float) -> void:
 	env.fog_light_color = env.fog_light_color.lerp(Color(0.16, 0.17, 0.2), t)
 	env.fog_density = lerpf(env.fog_density, 0.01, t)
 	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.57, 0.64), t)
-	# 最底層（y<-150）與高層平台（y>12）附近沒有燈，環境光拉高
-	_amb = lerpf(_amb, 1.0 if (player.position.y < -150.0 or player.position.y > 12.0) else 0.4, clampf(delta * 2.0, 0.0, 1.0))
+	# 高層平台（y>12）附近沒有燈，環境光拉高
+	_amb = lerpf(_amb, 1.0 if player.position.y > 12.0 else 0.4, clampf(delta * 2.0, 0.0, 1.0))
 	env.ambient_light_energy = lerpf(env.ambient_light_energy, _amb, t)
 
 
