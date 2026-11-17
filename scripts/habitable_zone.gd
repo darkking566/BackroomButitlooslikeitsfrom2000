@@ -24,6 +24,16 @@ var _flicker_timer: float = 0.0
 var _blackout_cooldown: float = 18.0
 var _blackout_left: float = 0.0
 
+var _vent_player: AudioStreamPlayer
+var _drip_player: AudioStreamPlayer3D
+var _breaker_player: AudioStreamPlayer
+var _drip_timer: float = 2.8
+const PUDDLE_SPOTS: Array[Vector3] = [
+	Vector3(-11.0, 0.2, -6.5),
+	Vector3(11.5, 0.2, 7.0),
+	Vector3(0.5, 0.2, 12.5),
+]
+
 var _mat_concrete_dark: StandardMaterial3D
 var _mat_hazard: StandardMaterial3D
 var _mat_pipe: StandardMaterial3D
@@ -42,10 +52,50 @@ func _ready() -> void:
 				if player:
 					player.position = Vector3(0.0, 0.05, 4.0)
 					root.add_child.call_deferred(player)
+		_setup_garage_audio(root)
+
+
+func _setup_garage_audio(root: Node) -> void:
+	if root:
+		var old_hum := root.get_node_or_null("AmbientHum")
+		if old_hum and old_hum is AudioStreamPlayer:
+			(old_hum as AudioStreamPlayer).stop()
+			old_hum.set_process(false)
+
+	_vent_player = AudioStreamPlayer.new()
+	_vent_player.name = "GarageVentHum"
+	_vent_player.stream = BackroomsAudio.create_garage_vent_hum_stream()
+	_vent_player.volume_db = -14.0
+	add_child(_vent_player)
+	_vent_player.play()
+
+	_drip_player = AudioStreamPlayer3D.new()
+	_drip_player.name = "WaterDrip3D"
+	_drip_player.stream = BackroomsAudio.create_water_drip_stream()
+	_drip_player.volume_db = -9.0
+	_drip_player.max_distance = 26.0
+	_drip_player.position = PUDDLE_SPOTS[0]
+	add_child(_drip_player)
+
+	_breaker_player = AudioStreamPlayer.new()
+	_breaker_player.name = "PowerTripAudio"
+	_breaker_player.stream = BackroomsAudio.create_power_trip_stream()
+	_breaker_player.volume_db = -10.0
+	add_child(_breaker_player)
 
 
 func _process(delta: float) -> void:
-	if Engine.is_editor_hint() or _flicker_lights.is_empty():
+	if Engine.is_editor_hint():
+		return
+
+	_drip_timer -= delta
+	if _drip_timer <= 0.0 and _drip_player:
+		_drip_timer = randf_range(2.4, 5.8)
+		_drip_player.position = PUDDLE_SPOTS[randi() % PUDDLE_SPOTS.size()]
+		_drip_player.pitch_scale = randf_range(0.86, 1.22)
+		_drip_player.play()
+
+	if _flicker_lights.is_empty():
 		return
 
 	_flicker_timer += delta
@@ -53,6 +103,12 @@ func _process(delta: float) -> void:
 	if _blackout_cooldown <= 0.0:
 		_blackout_left = randf_range(1.2, 2.6)
 		_blackout_cooldown = randf_range(22.0, 38.0)
+		if _breaker_player:
+			_breaker_player.play()
+
+	if _vent_player:
+		var target_db := -22.0 if _blackout_left > 0.0 else -14.0
+		_vent_player.volume_db = lerpf(_vent_player.volume_db, target_db, clampf(delta * 5.0, 0.0, 1.0))
 
 	if _blackout_left > 0.0:
 		_blackout_left -= delta
