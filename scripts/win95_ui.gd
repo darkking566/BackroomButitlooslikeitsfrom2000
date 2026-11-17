@@ -582,8 +582,17 @@ func _build_overlay() -> void:
 		{"name": "34. 校舍翼：回程走廊", "pos": Vector3(28.0, 0.05, 141.0), "yaw": -PI * 0.5},
 		{"name": "35. 校舍翼：暗廳（立面）", "pos": Vector3(78.0, -1.95, 150.0), "yaw": 0.0},
 		{"name": "36. 校舍翼：空房", "pos": Vector3(78.0, -1.95, 179.0), "yaw": 0.0},
-		{"name": "37. Blender 地圖：霧中小鎮（街道）", "pos": Vector3(700.0, 1.4, 0.0), "yaw": -0.6},
-		{"name": "38. Blender 地圖：隧道口", "pos": Vector3(700.0, 1.4, -20.0), "yaw": 0.0},
+		{"name": "37. Blender 地圖：街道廣場（空房東側出口）", "pos": Vector3(136.0, -1.95, 175.0), "yaw": -PI * 0.5},
+		{"name": "38. Blender 地圖：丘陵坡地", "pos": Vector3(313.0, -28.6, -9.0), "yaw": 0.0},
+		{"name": "39. Blender 地圖：下沉平台（上層）", "pos": Vector3(298.0, -20.35, 42.0), "yaw": PI},
+		{"name": "40. Blender 地圖：下沉平台（東側）", "pos": Vector3(367.0, -20.35, 79.0), "yaw": 0.0},
+		{"name": "41. Blender 地圖：地底大廳（立柱）", "pos": Vector3(202.0, -94.0, 301.0), "yaw": 0.0},
+		{"name": "42. Blender 地圖：地底迴廊", "pos": Vector3(217.0, -97.65, 241.0), "yaw": 0.0},
+		{"name": "43. Blender 地圖：三層疊樓（中層）", "pos": Vector3(292.0, -98.25, 229.0), "yaw": 0.0},
+		{"name": "44. Blender 地圖：地底深處（-100 層）", "pos": Vector3(250.0, -101.3, 127.0), "yaw": 0.0},
+		{"name": "45. Blender 地圖：最底層（-186）", "pos": Vector3(151.0, -186.05, 187.0), "yaw": 0.0},
+		{"name": "46. Blender 地圖：高層平台（南段）", "pos": Vector3(127.0, 18.8, 48.0), "yaw": 0.0},
+		{"name": "47. Blender 地圖：高層平台（北段）", "pos": Vector3(124.0, 18.8, 289.0), "yaw": 0.0},
 	]
 	for wp in waypoints:
 		var btn := _make_win95_button(" " + wp["name"])

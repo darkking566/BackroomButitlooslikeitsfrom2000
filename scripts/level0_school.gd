@@ -83,6 +83,7 @@ func _build() -> void:
 	_build_return_corridor()
 	_build_court()
 	_build_empty_room()
+	_build_map_link()
 	_build_school_props()
 	# 觸發區與錄影帶翼（最東到 x=26.2）只相接不重疊
 	_trigger("ZoneSchool", Vector3(43.2, 1.5, 99.0), Vector3(33.6, 3.0, 4.0), "vhs_school")
@@ -307,7 +308,7 @@ func _build_empty_room() -> void:
 	_slab(64.0, 176.0, 92.0, 196.0, -2.0, _m_cream)
 	_slab(64.0, 176.0, 92.0, 196.0, 4.2, _m_ceilb)
 	_wall(false, 64.0, 176.0, 196.0, -2.0, 6.0, _m_beige)
-	_wall(false, 92.0, 176.0, 196.0, -2.0, 6.0, _m_beige)
+	_wall(false, 92.0, 176.0, 196.0, -2.0, 6.0, _m_beige, [Vector4(184.0, 188.0, -2.0, 0.9)])
 	_wall(true, 196.0, 64.0, 92.0, -2.0, 6.0, _m_beige)
 	# 天窗與天花條
 	_glow(Vector3(80.0, 3.97, 188.0), Vector3(6.0, 0.06, 1.4), _m_lamp)
@@ -336,6 +337,17 @@ func _build_empty_room() -> void:
 	_note("EmptyNote", Vector3(70.0, 0.4, 195.83), 180.0, "閱讀牆上的紙條", "空房紙條",
 		"【空房】\n只有一張椅子，椅背比人高。天花板的光剛好打在它身上。\n\n"
 		+ "「藍色那扇門我沒打開過。它每次都比上一次亮一點。」")
+
+# --- 空房東側通道 → Blender 地圖（街道廣場邊緣 x≈124）---
+func _build_map_link() -> void:
+	_slab(92.0, 184.0, 126.0, 188.0, -2.0, _m_cream)
+	_slab(92.0, 184.0, 126.0, 188.0, 0.9, _m_ceilb)
+	_wall(true, 184.0, 92.0, 126.0, -2.0, 2.9, _m_beige)
+	_wall(true, 188.0, 92.0, 126.0, -2.0, 2.9, _m_beige)
+	for lx in [98.0, 106.0, 114.0, 122.0]:
+		var t: float = (lx - 98.0) / 24.0
+		_glow(Vector3(lx, 0.82, 186.0), Vector3(1.2, 0.05, 0.5), _m_lamp)
+		_omni(Vector3(lx, 0.4, 186.0), Color(1.0, 0.92, 0.65).lerp(Color(0.6, 0.7, 1.0), t), 0.9, 7.0)
 
 
 func _build_school_props() -> void:

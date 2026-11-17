@@ -123,7 +123,7 @@ func _process(delta: float) -> void:
 				blk["cd"] = 12.0
 
 	# Pitfall check inside Pitfalls zone (x: 4..26, z: 34.5..56.5)
-	if _pit_cooldown <= 0.0 and _player.position.y < -2.4 and _player.position.x < 400.0:
+	if _pit_cooldown <= 0.0 and _player.position.y < -2.4 and _player.position.x < 105.0:
 		_pit_cooldown = 1.5
 		_player._on_restart_requested()
 		return
