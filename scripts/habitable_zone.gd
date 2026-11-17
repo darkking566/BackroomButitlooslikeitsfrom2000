@@ -50,6 +50,7 @@ var _mat_concrete_dark: StandardMaterial3D
 var _mat_hazard: StandardMaterial3D
 var _mat_pipe: StandardMaterial3D
 var _mat_note_paper: StandardMaterial3D
+var _mat_paint_white: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -64,6 +65,14 @@ func _ready() -> void:
 				if player:
 					player.position = Vector3(0.0, 0.05, 4.0)
 					root.add_child.call_deferred(player)
+		if root and root.get_node_or_null("Monster") == null:
+			var monster_script := load("res://scripts/monster.gd")
+			if monster_script:
+				var monster := Node3D.new()
+				monster.name = "Monster"
+				monster.position = Vector3(16.0, 0.0, -14.0)
+				monster.set_script(monster_script)
+				root.add_child.call_deferred(monster)
 		_setup_garage_audio(root)
 
 
@@ -185,6 +194,10 @@ func _init_local_materials() -> void:
 	_mat_note_paper.albedo_color = Color(0.88, 0.84, 0.68)
 	_mat_note_paper.roughness = 0.9
 
+	_mat_paint_white = StandardMaterial3D.new()
+	_mat_paint_white.albedo_color = Color(0.56, 0.57, 0.54)
+	_mat_paint_white.roughness = 0.95
+
 
 func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	# 地板與天花板
@@ -276,7 +289,14 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 
 	# 廢棄車輛、三角錐與大型垃圾子車（Blender 降飽和做舊，CC0）
 	_spawn_model(props, PROP_DIR + "car_sedan.glb", "CarSedan_1", Vector3(-12.5, 0.0, 12.0), 18.0, Vector3(2.1, 1.5, 4.3))
+	_add_note_prop(props, "CarWarningNote", Vector3(-11.2, 0.92, 11.4),
+		"查看轎車引擎蓋上的紙條", "車主留下的紙條",
+		"【別在停車場久留】\n\n"
+		+ "車門鎖死了，但引擎還是微溫的。別把燈照向東邊的柱子太久……\n"
+		+ "每次燈開始亂閃的時候，柱陣後面都有東西在跟著腳步聲移動。"
+	)
 	_spawn_model(props, PROP_DIR + "car_suv.glb", "CarSUV_1", Vector3(12.2, 0.0, -14.5), -95.0, Vector3(4.5, 1.65, 2.25))
+	_build_parking_lines(geo)
 	_spawn_model(props, PROP_DIR + "dumpster.glb", "Dumpster_1", Vector3(22.2, 0.0, -6.5), -90.0, Vector3(1.0, 1.58, 1.9))
 	_spawn_model(props, PROP_DIR + "dumpster.glb", "Dumpster_2", Vector3(22.2, 0.0, 14.0), -90.0, Vector3(1.0, 1.58, 1.9))
 	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_1", Vector3(-4.5, 0.0, -5.2), 0.0, Vector3(0.55, 0.72, 0.55))
@@ -430,6 +450,18 @@ func _add_box(parent: Node3D, sz: Vector3, pos: Vector3, mat: Material, with_col
 		col.shape = shape
 		col.position = pos
 		parent.add_child(col)
+
+
+func _build_parking_lines(geo: StaticBody3D) -> void:
+	# 中央雙黃虛線（標示南北主車道）
+	for lz in [-16.0, -12.0, -8.0, -4.0, 0.0, 4.0, 8.0, 12.0, 16.0]:
+		_add_box(geo, Vector3(0.12, 0.008, 2.0), Vector3(-0.18, 0.006, lz), _mat_hazard, false)
+		_add_box(geo, Vector3(0.12, 0.008, 2.0), Vector3(0.18, 0.006, lz), _mat_hazard, false)
+
+	# 西側與東側停車格白線
+	for pz in [-15.0, -11.5, -8.0, 8.0, 11.5, 15.0]:
+		_add_box(geo, Vector3(4.6, 0.008, 0.11), Vector3(-12.5, 0.006, pz), _mat_paint_white, false)
+		_add_box(geo, Vector3(4.6, 0.008, 0.11), Vector3(12.5, 0.006, pz), _mat_paint_white, false)
 
 
 func _add_puddle(parent: Node3D, pos: Vector3, sz: Vector2) -> void:
