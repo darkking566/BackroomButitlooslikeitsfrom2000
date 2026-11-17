@@ -625,6 +625,11 @@ func _build_overlay() -> void:
 		{"name": "77. 地圖 疊樓（y -106）", "pos": Vector3(291.0, -106.19, 216.0), "yaw": 0.0},
 		{"name": "78. 地圖 疊樓（y -111）", "pos": Vector3(291.0, -110.46, 216.0), "yaw": 0.0},
 	]
+	var street_pts: Array[Vector3] = []
+	for wp in waypoints:
+		if ". 地圖" in wp["name"]:
+			street_pts.append(wp["pos"])
+	_map_canvas.set_street_points(street_pts)
 	for wp in waypoints:
 		var btn := _make_win95_button(" " + wp["name"])
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -637,7 +642,7 @@ func _build_overlay() -> void:
 		tp_list.add_child(btn)
 
 	var map_hint := Label.new()
-	map_hint.text = "紅點 = 目前位置 | 按 [ M ] / [ Esc ] 關閉地圖"
+	map_hint.text = "紅點 = 目前位置（右上為街道地圖：青=高層 黃=地面 橘=地底）| 按 [ M ] / [ Esc ] 關閉地圖"
 	map_hint.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	map_hint.add_theme_font_size_override("font_size", 12)
 	map_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -763,11 +768,38 @@ func _make_solid_box(fill: Color) -> StyleBoxFlat:
 class MapCanvas extends Control:
 	var _player_pos := Vector3.ZERO
 	var _player_yaw: float = 0.0
+	var _street_pts: Array[Vector3] = []
+
+	func set_street_points(pts: Array[Vector3]) -> void:
+		_street_pts = pts
 
 	func set_player(pos: Vector3, yaw: float) -> void:
 		_player_pos = pos
 		_player_yaw = yaw
 		queue_redraw()
+
+	# 街道地圖縮圖（右上角）：依傳送點範圍縮放的俯視圖，高度以顏色區分
+	func _draw_street_inset() -> void:
+		var box := Vector2(150, 135)
+		var r := Rect2(Vector2(size.x - box.x - 8.0, 8.0), box)
+		draw_rect(r, Color(0.03, 0.04, 0.05, 0.92), true)
+		draw_rect(r, Color(0.7, 0.8, 0.9, 0.6), false, 1.0)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(4, 12), "街道地圖（俯視）", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.9, 1.0))
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		for p in _street_pts:
+			lo = lo.min(Vector2(p.x, p.z))
+			hi = hi.max(Vector2(p.x, p.z))
+		var sc := minf((box.x - 16.0) / (hi.x - lo.x), (box.y - 30.0) / (hi.y - lo.y))
+		var o := r.position + Vector2(8, 22) - lo * sc
+		for p in _street_pts:
+			var c := Color(0.4, 0.9, 1.0) if p.y > 10.0 else (Color(1.0, 0.6, 0.2) if p.y < -6.0 else Color(0.95, 0.95, 0.5))
+			draw_circle(o + Vector2(p.x, p.z) * sc, 2.5, c)
+		var pp := _player_pos
+		if pp.x > 100.0 or pp.y < -6.0 or pp.y > 17.0:
+			var q := o + Vector2(pp.x, pp.z) * sc
+			draw_circle(q, 4.0, Color(1.0, 0.2, 0.2))
+			draw_arc(q, 5.0, 0.0, TAU, 16, Color.WHITE, 1.2)
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
@@ -831,6 +863,9 @@ class MapCanvas extends Control:
 		_draw_zone(60.0, 142.0, 96.0, 176.0, Color(0.16, 0.15, 0.09, 0.95), "暗廳")
 		_draw_zone(64.0, 176.0, 92.0, 196.0, Color(0.84, 0.74, 0.55, 0.95), "空房")
 
+		_draw_street_inset()
+		if _player_pos.x > 100.0 or _player_pos.y < -6.0 or _player_pos.y > 17.0:
+			return
 		var pm := _world_to_map(_player_pos.x, _player_pos.z)
 		var fwd := Vector2(-sin(_player_yaw), -cos(_player_yaw))
 		draw_line(pm, pm + fwd * 14.0, Color(0.2, 1.0, 1.0), 2.0)
