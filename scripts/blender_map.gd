@@ -31,6 +31,7 @@ func _ready() -> void:
 	link.end_position = Vector3(131.5, -1.6, 186.0)
 	add_child(link)
 	_load_lights.call_deferred()
+	_init_street_audio()
 
 
 # 靠近/進入本地圖後接管環境（霧淡、環境光偏冷）：x 100→124 漸變，離開後交還給 Level0 的區域腳本
@@ -43,6 +44,7 @@ func _process(delta: float) -> void:
 	if player.position.x > 105.0 and player.position.y < -140.0:
 		player.call("_on_teleport_requested", Vector3(136.0, -1.95, 175.0), -PI * 0.5)
 		return
+	_update_street_audio(delta, player)
 	if not _pool.is_empty():
 		_update_lights(delta, player.global_position if player.position.x > 90.0 else Vector3(-9999, -9999, -9999))
 	var w := clampf((player.position.x - 100.0) / 24.0, 0.0, 1.0)
@@ -301,3 +303,171 @@ func _proc_tex(kind: String) -> ImageTexture:
 func _local_tex(nm: String) -> Texture2D:
 	var path := "res://assets/textures/map_fill/%s.png" % nm
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+# --- 街道氛圍音效（程式生成）：風、夜蟲、偶爾遠處的金屬聲/車聲。只在街道（地面層）響，Level0 的日光燈嗡聲同時壓低 ---
+const WIND_DB := -22.0
+const INSECT_DB := -29.0
+const FAR_DB := -20.0
+const HUM_DB := -15.5
+var _wind: AudioStreamPlayer
+var _insects: AudioStreamPlayer
+var _far: AudioStreamPlayer
+var _far_streams: Array[AudioStreamWAV] = []
+var _far_t := 12.0
+var _street_w := 0.0
+var _hum_ducked := false
+
+
+func _init_street_audio() -> void:
+	_wind = _mk_player(_wind_stream(), -80.0)
+	_insects = _mk_player(_insect_stream(), -80.0)
+	_far = AudioStreamPlayer.new()
+	add_child(_far)
+	_far_streams = [_clang_stream(), _engine_stream()]
+
+
+func _mk_player(st: AudioStreamWAV, db: float) -> AudioStreamPlayer:
+	var p := AudioStreamPlayer.new()
+	p.stream = st
+	p.volume_db = db
+	add_child(p)
+	return p
+
+
+func _update_street_audio(delta: float, player: Node3D) -> void:
+	# 街道 = 地面層（y -10..12）且已走出走廊（x 110→130 漸入）
+	var target := 0.0
+	if player.position.y > -10.0 and player.position.y < 12.0:
+		target = clampf((player.position.x - 110.0) / 20.0, 0.0, 1.0)
+	_street_w = lerpf(_street_w, target, clampf(delta * 1.5, 0.0, 1.0))
+	var mon := get_parent().get_node_or_null("Monster") as Node3D
+	var quiet := 1.0
+	if mon != null:
+		quiet = clampf((mon.global_position.distance_to(player.global_position) - 8.0) / 14.0, 0.0, 1.0)  # 怪物靠近時蟲鳴停下
+	var on := _street_w > 0.01
+	for pl in [_wind, _insects]:
+		if on and not pl.playing:
+			pl.play()
+		elif not on and pl.playing:
+			pl.stop()
+	_wind.volume_db = linear_to_db(maxf(_street_w, 0.0001)) + WIND_DB
+	_insects.volume_db = linear_to_db(maxf(_street_w * quiet, 0.0001)) + INSECT_DB
+	var hum := get_parent().get_node_or_null("AmbientHum") as AudioStreamPlayer
+	if hum != null:
+		if _street_w > 0.01:
+			hum.volume_db = lerpf(HUM_DB, -40.0, _street_w)
+			_hum_ducked = true
+		elif _hum_ducked:
+			hum.volume_db = HUM_DB
+			_hum_ducked = false
+	if on:
+		_far_t -= delta
+		if _far_t <= 0.0:
+			_far_t = randf_range(22.0, 55.0)
+			_far.stream = _far_streams.pick_random()
+			_far.volume_db = FAR_DB + linear_to_db(_street_w)
+			_far.pitch_scale = randf_range(0.85, 1.15)
+			_far.play()
+
+
+func _wav(samples: PackedFloat32Array, loop: bool) -> AudioStreamWAV:
+	var n := samples.size()
+	var peak := 0.0001
+	for v in samples:
+		peak = maxf(peak, absf(v))
+	var b := PackedByteArray()
+	b.resize(n * 2)
+	for i in n:
+		b.encode_s16(i * 2, int(clampf(samples[i] / peak * 0.8, -1.0, 1.0) * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = 22050
+	w.stereo = false
+	w.data = b
+	if loop:
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_begin = 0
+		w.loop_end = n
+	return w
+
+
+# 首尾交叉淡化成可無縫循環的長度 n
+func _loopable(x: PackedFloat32Array, n: int, fade: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in n:
+		out[i] = x[i]
+	for i in fade:
+		out[i] = lerpf(x[n + i], x[i], float(i) / float(fade))
+	return out
+
+
+func _wind_stream() -> AudioStreamWAV:
+	var n := 22050 * 8
+	var fade := 22050
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7311
+	var x := PackedFloat32Array()
+	x.resize(n + fade)
+	var a := 0.0
+	var b := 0.0
+	for i in n + fade:
+		var t := float(i) / 22050.0
+		a = lerpf(a, rng.randf_range(-1.0, 1.0), 0.03)
+		b = lerpf(b, a, 0.1)
+		var gust := 0.55 + 0.3 * sin(TAU * t / 8.0 * 1.0 + 0.7) + 0.15 * sin(TAU * t / 8.0 * 3.0)
+		x[i] = b * gust
+	return _wav(_loopable(x, n, fade), true)
+
+
+func _insect_stream() -> AudioStreamWAV:
+	var n := 22050 * 6
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9201
+	var x := PackedFloat32Array()
+	x.resize(n)
+	for g in 22:
+		var start := rng.randi_range(0, n - 22050)
+		var f := rng.randf_range(3800.0, 5200.0)
+		var amp := rng.randf_range(0.3, 1.0)
+		var pulses := rng.randi_range(2, 4)
+		for p in pulses:
+			var p0 := start + p * 1500
+			for i in 520:
+				var env := sin(PI * float(i) / 520.0)
+				var idx := (p0 + i) % n
+				x[idx] += amp * env * sin(TAU * f * float(i) / 22050.0)
+	return _wav(x, true)
+
+
+func _clang_stream() -> AudioStreamWAV:
+	var n := int(22050 * 2.6)
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var parts := [[212.0, 1.0, 2.2], [347.0, 0.7, 3.0], [563.0, 0.45, 4.0], [911.0, 0.25, 5.5]]
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		var v := 0.0
+		for pr in parts:
+			v += pr[1] * sin(TAU * pr[0] * t) * exp(-t * pr[2])
+		lp = lerpf(lp, v, 0.35)  # 壓掉高頻 = 聽起來很遠
+		x[i] = lp
+	return _wav(x, false)
+
+
+func _engine_stream() -> AudioStreamWAV:
+	var n := 22050 * 7
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4410
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		var env := sin(PI * t / 7.0)
+		env = env * env
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.05)
+		x[i] = env * (lp * 0.5 + 0.6 * sin(TAU * (62.0 + 8.0 * env) * t))
+	return _wav(x, false)
