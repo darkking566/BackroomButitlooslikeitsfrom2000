@@ -60,29 +60,104 @@ func _process(delta: float) -> void:
 	env.ambient_light_energy = lerpf(env.ambient_light_energy, _amb, t)
 
 
-# 碰撞：每個三角形正反面各放一份。Blender/Source 的地板法線方向不可靠，
-# 導航烘焙只認朝上的面，單面碰撞會讓整張地圖烘不出可走區域（怪物進不來）。
+# 碰撞：每個材質面各一個靜態體，三角形正反面各放一份（Blender/Source 的地板法線方向不可靠，
+# 導航烘焙只認朝上的面，單面碰撞會讓整張地圖烘不出可走區域）。依材質名稱設定腳步聲種類。
 func _add_collision(n: Node) -> void:
 	for c in n.get_children():
 		_add_collision(c)
-	if n is MeshInstance3D and (n as MeshInstance3D).mesh:
-		var faces := (n as MeshInstance3D).mesh.get_faces()
-		var both := PackedVector3Array()
-		both.resize(faces.size() * 2)
-		for i in range(0, faces.size(), 3):
-			both[i * 2] = faces[i]
-			both[i * 2 + 1] = faces[i + 1]
-			both[i * 2 + 2] = faces[i + 2]
-			both[i * 2 + 3] = faces[i + 2]
-			both[i * 2 + 4] = faces[i + 1]
-			both[i * 2 + 5] = faces[i]
+	var mi := n as MeshInstance3D
+	if mi == null or mi.mesh == null:
+		return
+	for i in mi.mesh.get_surface_count():
+		var arr := mi.mesh.surface_get_arrays(i)
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx := PackedInt32Array()
+		if arr[Mesh.ARRAY_INDEX] != null:
+			idx = arr[Mesh.ARRAY_INDEX]
+		var faces := PackedVector3Array()
+		var use_idx := idx.size() > 0
+		var tri_count: int = idx.size() if use_idx else verts.size()
+		faces.resize(tri_count * 2)
+		for t in range(0, tri_count, 3):
+			var a0: Vector3
+			var a1: Vector3
+			var a2: Vector3
+			if use_idx:
+				a0 = verts[idx[t]]
+				a1 = verts[idx[t + 1]]
+				a2 = verts[idx[t + 2]]
+			else:
+				a0 = verts[t]
+				a1 = verts[t + 1]
+				a2 = verts[t + 2]
+			faces[t * 2] = a0
+			faces[t * 2 + 1] = a1
+			faces[t * 2 + 2] = a2
+			faces[t * 2 + 3] = a2
+			faces[t * 2 + 4] = a1
+			faces[t * 2 + 5] = a0
+		if faces.is_empty():
+			continue
 		var shape := ConcavePolygonShape3D.new()
-		shape.set_faces(both)
+		shape.set_faces(faces)
 		var body := StaticBody3D.new()
 		var cs := CollisionShape3D.new()
 		cs.shape = shape
 		body.add_child(cs)
+		var m := mi.mesh.surface_get_material(i)
+		body.set_meta("step_stream", _step_for(m.resource_name.to_upper() if m else ""))
 		n.add_child(body)
+
+
+# --- 腳步聲：依材質名稱挑種類（程式生成，同種類共用一個串流）---
+var _step_cache := {}
+
+
+func _step_for(nm: String) -> AudioStream:
+	var kind := "concrete"
+	if nm.contains("CARPET"):
+		kind = "carpet"
+	elif nm.contains("GRASS") or nm.contains("DIRT") or nm.contains("MOSS"):
+		kind = "grass"
+	elif nm.contains("WOOD") or nm.contains("PLANK") or nm.contains("BOARD") or nm.contains("PARQUET"):
+		kind = "wood"
+	elif nm.contains("TILE") or nm.contains("CERAMIC") or nm.contains("MARBLE") or nm.contains("KITCHEN"):
+		kind = "tile"
+	elif nm.contains("METAL") or nm.contains("GRATE") or nm.contains("CITADEL") or nm.contains("STEEL"):
+		kind = "metal"
+	elif nm.contains("GRAVEL") or nm.contains("CLIFF") or nm.contains("ROCK"):
+		kind = "gravel"
+	if not _step_cache.has(kind):
+		_step_cache[kind] = BackroomsAudio.create_carpet_footstep_stream() if kind == "carpet" else _step_stream(kind)
+	return _step_cache[kind]
+
+
+func _step_stream(kind: String) -> AudioStreamWAV:
+	# [噪音低通係數, 噪音衰減, 音調Hz, 音調量, 音調衰減, 起音秒數, 噪音量]
+	var tbl := {
+		"concrete": [0.30, 38.0, 95.0, 0.55, 30.0, 0.002, 0.9],
+		"grass": [0.07, 20.0, 70.0, 0.2, 25.0, 0.02, 0.8],
+		"wood": [0.18, 30.0, 150.0, 0.9, 22.0, 0.002, 0.45],
+		"tile": [0.75, 50.0, 330.0, 0.25, 40.0, 0.001, 0.9],
+		"metal": [0.55, 32.0, 760.0, 0.5, 14.0, 0.001, 0.7],
+		"gravel": [0.9, 16.0, 60.0, 0.15, 25.0, 0.001, 1.0],
+	}
+	var p: Array = tbl[kind]
+	var n := int(22050 * 0.32)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(kind)
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), p[0])
+		var att := minf(1.0, t / maxf(p[5], 0.0005))
+		var v: float = lp * exp(-t * p[1]) * p[6] + sin(TAU * p[2] * t) * exp(-t * p[4]) * p[3]
+		if kind == "gravel":
+			v *= 0.6 + 0.4 * sin(TAU * 38.0 * t)  # 沙沙的顆粒感
+		x[i] = v * att
+	return _wav(x, false)
 
 
 # --- 材質：PS1 風格（最近鄰取樣、無法線/高光），日光天空盒隱藏，日光燈管自發光 ---

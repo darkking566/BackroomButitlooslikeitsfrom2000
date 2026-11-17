@@ -27,6 +27,7 @@ var _camera_base_y: float = 0.0
 var _pitch: float = 0.0
 var _ignore_mouse_frames: int = 3
 var _step_primed: bool = true
+var _default_step: AudioStream
 var _is_crouching: bool = false
 var _capsule: CapsuleShape3D
 
@@ -49,6 +50,7 @@ func _ready() -> void:
 		flashlight.visible = false
 	if footstep_player:
 		footstep_player.stream = BackroomsAudio.create_carpet_footstep_stream()
+		_default_step = footstep_player.stream
 		footstep_player.volume_db = -7.0
 	_win95_ui = get_parent().get_node_or_null("Win95UI")
 	if _win95_ui:
@@ -270,7 +272,19 @@ func _update_head_bob(delta: float) -> void:
 		camera.position.x = lerpf(camera.position.x, 0.0, 8.0 * delta)
 
 
+# 腳下的碰撞體若帶有 "step_stream" meta（例如 Blender 地圖依材質設定），就用那種腳步聲，否則用預設地毯聲
+func _surface_step_stream() -> AudioStream:
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * 1.2)
+	q.exclude = [get_rid()]
+	var r := get_world_3d().direct_space_state.intersect_ray(q)
+	if not r.is_empty() and r.collider != null and r.collider.has_meta("step_stream"):
+		return r.collider.get_meta("step_stream")
+	return _default_step
+
+
 func _play_footstep() -> void:
+	if footstep_player:
+		footstep_player.stream = _surface_step_stream()
 	if footstep_player and footstep_player.stream:
 		footstep_player.pitch_scale = randf_range(0.88, 1.12)
 		footstep_player.volume_db = randf_range(-9.5, -6.5)
