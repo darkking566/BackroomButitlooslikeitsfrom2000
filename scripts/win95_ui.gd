@@ -45,6 +45,7 @@ var _map_group: Control
 var _map_canvas: Control
 
 var _is_open: bool = false
+var _is_habitable_zone: bool = false
 
 const SETTINGS_PATH := "user://settings.cfg"
 var frenzy_mode := false  # 狂暴追獵模式：怪物讀這個值
@@ -234,7 +235,7 @@ func show_map(player_pos: Vector3, player_yaw: float) -> void:
 	_exit_dialog.visible = false
 	_map_group.visible = true
 	_map_canvas.set_player(player_pos, player_yaw)
-	_task_label.text = " M.E.G. 閾界導航地圖與快速傳送"
+	_task_label.text = " M.E.G. 宜居地帶導航地圖與快速傳送" if _is_habitable_zone else " M.E.G. 閾界導航地圖與快速傳送"
 
 
 func show_settings() -> void:
@@ -540,7 +541,10 @@ func _build_overlay() -> void:
 	_map_group.visible = false
 	_overlay.add_child(_map_group)
 
-	var map_win := _create_win95_window(Vector2(760, 480), "M.E.G. Map & Fast Travel - 閾界")
+	var cur_scene := get_tree().current_scene
+	_is_habitable_zone = cur_scene != null and cur_scene.scene_file_path.ends_with("habitable_zone.tscn")
+	var map_title := "M.E.G. Map & Fast Travel - 宜居地帶" if _is_habitable_zone else "M.E.G. Map & Fast Travel - 閾界"
+	var map_win := _create_win95_window(Vector2(760, 480), map_title)
 	_map_group.add_child(map_win["frame"])
 	var map_content: VBoxContainer = map_win["content"]
 
@@ -556,6 +560,7 @@ func _build_overlay() -> void:
 	map_hbox.add_child(map_frame)
 
 	_map_canvas = MapCanvas.new()
+	_map_canvas.is_habitable_zone = _is_habitable_zone
 	_map_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map_frame.add_child(_map_canvas)
@@ -575,8 +580,7 @@ func _build_overlay() -> void:
 	tp_scroll.add_child(tp_list)
 
 	var btn_layer_switch := _make_win95_button(" → 切換層級：前往「宜居地帶」 ")
-	var cur_scene := get_tree().current_scene
-	if cur_scene and cur_scene.scene_file_path.ends_with("habitable_zone.tscn"):
+	if _is_habitable_zone:
 		btn_layer_switch.text = " ← 切換層級：返回「閾界」 "
 		btn_layer_switch.pressed.connect(func():
 			close_popup()
@@ -595,7 +599,19 @@ func _build_overlay() -> void:
 	tp_hdr.add_theme_font_size_override("font_size", 13)
 	tp_list.add_child(tp_hdr)
 
-	var waypoints: Array[Dictionary] = [
+	var waypoints: Array[Dictionary] = []
+	if _is_habitable_zone:
+		waypoints = [
+			{"name": "1. 入口卸貨區（服務桌）", "pos": Vector3(0.0, 0.05, 4.0), "yaw": 0.0},
+			{"name": "2. 西區配電箱（復電點 A）", "pos": Vector3(-21.5, 0.05, -3.5), "yaw": PI * 0.5},
+			{"name": "3. 西側鐵門（返回「閾界」）", "pos": Vector3(-21.5, 0.05, 0.0), "yaw": PI * 0.5},
+			{"name": "4. 北側管線走廊（補給前哨）", "pos": Vector3(0.0, 0.05, -28.0), "yaw": 0.0},
+			{"name": "5. 北區配電箱（復電點 B）", "pos": Vector3(2.8, 0.05, -31.5), "yaw": 0.0},
+			{"name": "6. 南側積水車道（電動捲門前）", "pos": Vector3(0.0, 0.05, 25.0), "yaw": PI},
+			{"name": "7. 南側地下安全避難所", "pos": Vector3(0.0, 0.05, 34.5), "yaw": PI},
+		]
+	else:
+		waypoints = [
 		{"name": "1. 起點（黃色走廊）", "pos": Vector3(-26.0, 0.05, 18.2), "yaw": -PI * 0.5},
 		{"name": "2. M.E.G. 檔案終端機", "pos": Vector3(-13.5, 0.05, 12.2), "yaw": 0.0},
 		{"name": "3. 變體交匯處（地毯）", "pos": Vector3(-16.0, 0.05, 42.5), "yaw": PI},
@@ -864,6 +880,7 @@ class MapCanvas extends Control:
 	var _player_pos := Vector3.ZERO
 	var _player_yaw: float = 0.0
 	var _street_pts: Array[Vector3] = []
+	var is_habitable_zone: bool = false
 
 	func set_street_points(pts: Array[Vector3]) -> void:
 		_street_pts = pts
@@ -897,6 +914,17 @@ class MapCanvas extends Control:
 			draw_arc(q, 5.0, 0.0, TAU, 16, Color.WHITE, 1.2)
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
+		if is_habitable_zone:
+			# 宜居地帶 bounds: x [-28 .. +28], z [-38 .. +42]
+			var hnx := (wx + 28.0) / 56.0
+			var hnz := (wz + 38.0) / 80.0
+			var hpad := 16.0
+			var hw := size.x - hpad * 2.0
+			var hh := size.y - hpad * 2.0
+			var hscale := minf(hw / (56.0 / 80.0), hh)
+			var hox := (size.x - hscale * (56.0 / 80.0)) * 0.5
+			var hoy := (size.y - hscale) * 0.5
+			return Vector2(hox + hnx * hscale * (56.0 / 80.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -921,6 +949,23 @@ class MapCanvas extends Control:
 			draw_string(ThemeDB.fallback_font, p1 + Vector2(4, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.95, 0.95))
 
 	func _draw() -> void:
+		if is_habitable_zone:
+			_draw_zone(-24.0, -20.0, 24.0, 20.0, Color(0.28, 0.31, 0.35, 0.92), "主停車場大廳")
+			_draw_zone(-10.0, -34.0, 10.0, -20.0, Color(0.22, 0.26, 0.30, 0.92), "北側管線走廊")
+			_draw_zone(-8.0, 20.0, 8.0, 30.0, Color(0.20, 0.25, 0.32, 0.92), "南側積水車道")
+			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.45, 0.38, 0.22, 0.95), "安全避難所")
+			_draw_zone(-16.5, -10.5, -5.5, -2.5, Color(0.14, 0.26, 0.34, 0.85), "積水")
+			_draw_zone(6.5, 2.75, 16.5, 11.25, Color(0.14, 0.26, 0.34, 0.85), "積水")
+			_draw_zone(-3.0, 9.5, 4.0, 15.5, Color(0.14, 0.26, 0.34, 0.85), "")
+			# 標示兩處配電箱與返回門
+			draw_circle(_world_to_map(-23.4, -3.5), 4.5, Color(0.95, 0.72, 0.18))
+			draw_circle(_world_to_map(2.8, -33.4), 4.5, Color(0.95, 0.72, 0.18))
+			draw_circle(_world_to_map(-23.4, 0.0), 4.5, Color(0.35, 0.78, 0.95))
+			var hpm := _world_to_map(_player_pos.x, _player_pos.z)
+			var hfwd := Vector2(-sin(_player_yaw), -cos(_player_yaw))
+			draw_circle(hpm, 5.0, Color(1.0, 0.2, 0.2))
+			draw_line(hpm, hpm + hfwd * 12.0, Color(1.0, 0.9, 0.2), 2.0)
+			return
 		_draw_zone(-87.1, -32.5, -32.5, 32.5, Color(0.42, 0.39, 0.19, 0.85), "西側迷宮")
 		_draw_zone(-32.5, -32.5, 32.5, 32.5, Color(0.62, 0.57, 0.25, 0.9), "閾界 主迷宮")
 		_draw_zone(32.5, -2.0, 56.0, 16.0, Color(0.32, 0.36, 0.42, 0.9), "Zone 2")
