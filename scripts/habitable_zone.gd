@@ -147,10 +147,10 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 			_add_box(geo, Vector3(0.9, CEIL_H, 0.9), Vector3(px, CEIL_H * 0.5, pz), MAT_HALL_WALL, true)
 			_add_box(geo, Vector3(0.96, 0.22, 0.96), Vector3(px, 0.75, pz), _mat_hazard, false)
 
-	# 積水區（純視覺反光薄片，不加碰撞）
-	_add_box(geo, Vector3(11.0, 0.015, 7.5), Vector3(-11.0, 0.008, -6.5), MAT_WET_FLOOR, false)
-	_add_box(geo, Vector3(9.5, 0.015, 8.0), Vector3(11.5, 0.008, 7.0), MAT_WET_FLOOR, false)
-	_add_box(geo, Vector3(6.5, 0.015, 5.5), Vector3(0.5, 0.008, 12.5), MAT_WET_FLOOR, false)
+	# 積水區（純視覺反光薄片，抬高 1.5cm 並細分網格避免與地板產生 Z-fighting 閃爍）
+	_add_box(geo, Vector3(11.0, 0.01, 7.5), Vector3(-11.0, 0.015, -6.5), MAT_WET_FLOOR, false)
+	_add_box(geo, Vector3(9.5, 0.01, 8.0), Vector3(11.5, 0.015, 7.0), MAT_WET_FLOOR, false)
+	_add_box(geo, Vector3(6.5, 0.01, 5.5), Vector3(0.5, 0.015, 12.5), MAT_WET_FLOOR, false)
 
 	# 頭頂管線
 	_add_pipe(geo, Vector3(-22.0, 3.15, -10.0), Vector3(22.0, 3.15, -10.0), 0.12)
@@ -276,6 +276,10 @@ func _add_box(parent: Node3D, sz: Vector3, pos: Vector3, mat: Material, with_col
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = sz
+	# 依尺寸自動細分，避免大型平面在 PS1 仿射著色器下隨視角嚴重扭曲或 Z-fighting
+	bm.subdivide_width = clampi(int(sz.x / 2.0) - 1, 0, 24)
+	bm.subdivide_height = clampi(int(sz.y / 2.0) - 1, 0, 8)
+	bm.subdivide_depth = clampi(int(sz.z / 2.0) - 1, 0, 24)
 	mi.mesh = bm
 	mi.position = pos
 	mi.material_override = mat
