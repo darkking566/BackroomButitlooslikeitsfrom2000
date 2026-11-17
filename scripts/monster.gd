@@ -202,7 +202,7 @@ func _think(delta: float) -> void:
 			state = State.CHASE
 		if dist < catch_distance:
 			var bm := get_parent().get_node_or_null("BlenderMap")  # 在 Blender 地圖裡被抓：播專屬的驚嚇音效
-			if bm and _player.global_position.x > 105.0:
+			if bm and bm.call("in_map", _player.global_position):
 				bm.call("play_caught")
 			_player._on_restart_requested()
 			_reset()

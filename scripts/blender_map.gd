@@ -37,6 +37,11 @@ func _ready() -> void:
 	_init_street_audio()
 
 
+# 玩家是否在地圖範圍：東側（x>100）或是 Level0 平面範圍內但高度在 Level0 之外（地底 y<-6 / 高層 y>17）
+func in_map(p: Vector3) -> bool:
+	return p.x > 100.0 or p.y < -6.0 or p.y > 17.0
+
+
 # 靠近/進入本地圖後接管環境（霧淡、環境光偏冷）：x 100→124 漸變，離開後交還給 Level0 的區域腳本
 func _process(delta: float) -> void:
 	var player := get_parent().get_node_or_null("Player") as Node3D
@@ -44,13 +49,15 @@ func _process(delta: float) -> void:
 	if player == null or we == null or we.environment == null:
 		return
 	# 掉出地圖（最低的地面約 y=-111）：送回街道廣場
-	if player.position.x > 105.0 and player.position.y < -140.0:
+	if in_map(player.position) and player.position.y < -140.0:
 		player.call("_on_teleport_requested", Vector3(136.0, -1.95, 175.0), -PI * 0.5)
 		return
 	_update_street_audio(delta, player)
 	if not _pool.is_empty():
-		_update_lights(delta, player.global_position if player.position.x > 90.0 else Vector3(-9999, -9999, -9999))
+		_update_lights(delta, player.global_position if (player.position.x > 90.0 or in_map(player.position)) else Vector3(-9999, -9999, -9999))
 	var w := clampf((player.position.x - 100.0) / 24.0, 0.0, 1.0)
+	if player.position.y < -6.0 or player.position.y > 17.0:
+		w = 1.0
 	if w <= 0.0:
 		return
 	var t := 1.0 if w >= 1.0 else clampf(w * delta * 6.0, 0.0, 1.0)
