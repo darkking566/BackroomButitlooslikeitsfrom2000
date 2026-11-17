@@ -405,6 +405,8 @@ var _far_streams: Array[AudioStreamWAV] = []
 var _far_t := 12.0
 var _street_w := 0.0
 var _hum_ducked := false
+var _hush := 0.0                # 被抓後街道聲音安靜的剩餘秒數
+var _caught: AudioStreamPlayer
 
 
 func _init_street_audio() -> void:
@@ -413,6 +415,7 @@ func _init_street_audio() -> void:
 	_far = AudioStreamPlayer.new()
 	add_child(_far)
 	_far_streams = [_clang_stream(), _engine_stream()]
+	_caught = _mk_player(_caught_stream(), -3.0)
 
 
 func _mk_player(st: AudioStreamWAV, db: float) -> AudioStreamPlayer:
@@ -433,13 +436,16 @@ func _update_street_audio(delta: float, player: Node3D) -> void:
 	var quiet := 1.0
 	if mon != null:
 		quiet = clampf((mon.global_position.distance_to(player.global_position) - 8.0) / 14.0, 0.0, 1.0)  # 怪物靠近時蟲鳴停下
+	_hush = maxf(0.0, _hush - delta)
+	if _hush > 0.0:
+		quiet = 0.0
 	var on := _street_w > 0.01
 	for pl in [_wind, _insects]:
 		if on and not pl.playing:
 			pl.play()
 		elif not on and pl.playing:
 			pl.stop()
-	_wind.volume_db = linear_to_db(maxf(_street_w, 0.0001)) + WIND_DB
+	_wind.volume_db = linear_to_db(maxf(_street_w * (0.0 if _hush > 0.0 else 1.0), 0.0001)) + WIND_DB
 	_insects.volume_db = linear_to_db(maxf(_street_w * quiet, 0.0001)) + INSECT_DB
 	var hum := get_parent().get_node_or_null("AmbientHum") as AudioStreamPlayer
 	if hum != null:
@@ -738,4 +744,31 @@ func _creak_stream() -> AudioStreamWAV:
 		var f := 260.0 + 140.0 * sin(TAU * 1.6 * t) + 90.0 * env
 		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.3)
 		x[i] = env * (sin(TAU * f * t) * 0.45 + sin(TAU * f * 2.01 * t) * 0.2 + lp * 0.12)
+	return _wav(x, false)
+
+
+# 被怪物抓到：撞擊 + 失真尖嘯 + 低頻餘震，之後街道聲音靜默幾秒（monster.gd 呼叫）
+func play_caught() -> void:
+	if _caught == null:
+		return
+	_hush = 3.5
+	_caught.play()
+
+
+func _caught_stream() -> AudioStreamWAV:
+	var n := int(22050 * 2.2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6666
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.55)
+		var hit := (sin(TAU * 52.0 * t) * exp(-t * 5.0) * 1.2 + lp * exp(-t * 16.0))
+		var f := 900.0 + 700.0 * minf(t / 0.5, 1.0)
+		var scr := (sin(TAU * f * t) + 0.6 * sin(TAU * f * 1.51 * t + 1.0) + 0.4 * sin(TAU * f * 2.3 * t)) * exp(-t * 2.4) * 0.5
+		scr = clampf(scr * 2.2, -1.0, 1.0) * 0.55  # 削波 = 刺耳
+		var rumble := sin(TAU * 34.0 * t) * exp(-t * 1.2) * 0.5 * smoothstep(0.1, 0.5, t)
+		x[i] = hit + scr + rumble
 	return _wav(x, false)
