@@ -68,9 +68,9 @@ func _process(delta: float) -> void:
 	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.52, 0.40), t)
 	# 環境光跟「附近有沒有亮著的燈」走：燈下 0.28，離燈 14 m 以上降到 0.05（不開手電筒幾乎看不見）；
 	# 戶外（地面層）保底 0.14 當月光
-	var base := lerpf(0.08, 0.14, _lit)
+	var base := lerpf(0.11, 0.16, _lit)  # 下限 0.11（起點是 0.10）：附近沒有燈的封閉房間、地底、街道也不會全黑
 	if player.position.y > -10.0 and player.position.y < 12.0:
-		base = maxf(base, 0.09)
+		base = maxf(base, 0.12)
 	_amb = lerpf(_amb, base, clampf(delta * 2.0, 0.0, 1.0))
 	env.ambient_light_energy = lerpf(env.ambient_light_energy, _amb, t)
 
