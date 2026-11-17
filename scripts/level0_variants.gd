@@ -257,7 +257,9 @@ func _build_arches(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	# Outer walls (pale cream)
 	_add_wall(body, Vector3(-34.0, WALL_H * 0.5, 34.35), Vector3(20.0, WALL_H, 0.3), _mat_pale_wall)
 	_add_wall(body, Vector3(-34.0, WALL_H * 0.5, 50.65), Vector3(20.0, WALL_H, 0.3), _mat_pale_wall)
-	_add_wall(body, Vector3(-44.15, WALL_H * 0.5, 42.5), Vector3(0.3, WALL_H, 16.0), _mat_pale_wall)
+	# West wall splits around Level0Expanse opening z [44 .. 48]
+	_add_wall(body, Vector3(-44.15, WALL_H * 0.5, 39.25), Vector3(0.3, WALL_H, 9.5), _mat_pale_wall)
+	_add_wall(body, Vector3(-44.15, WALL_H * 0.5, 49.25), Vector3(0.3, WALL_H, 2.5), _mat_pale_wall)
 	# East wall splits around Hub opening z [38.5 .. 46.5]
 	_add_wall(body, Vector3(-23.85, WALL_H * 0.5, 36.5), Vector3(0.3, WALL_H, 4.0), _mat_pale_wall)
 	_add_wall(body, Vector3(-23.85, WALL_H * 0.5, 48.5), Vector3(0.3, WALL_H, 4.0), _mat_pale_wall)

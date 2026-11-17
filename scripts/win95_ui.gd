@@ -558,6 +558,12 @@ func _build_overlay() -> void:
 		{"name": "10. 紅室深處（死循環）", "pos": Vector3(-2.6, 0.05, 70.0), "yaw": PI},
 		{"name": "11. Zone 2 過渡大廳", "pos": Vector3(21.0, 0.05, 7.8), "yaw": -PI * 0.5},
 		{"name": "12. Zone 3 綠廳", "pos": Vector3(51.6, 0.05, -4.5), "yaw": 0.0},
+		{"name": "13. 西翼：下沉會議坑", "pos": Vector3(-55.0, 0.05, 46.0), "yaw": PI * 0.5},
+		{"name": "14. 西翼：挑高中庭", "pos": Vector3(-80.0, 0.05, 46.0), "yaw": PI * 0.5},
+		{"name": "15. 西翼：二樓迴廊", "pos": Vector3(-90.0, 4.55, 68.0), "yaw": PI * 0.5},
+		{"name": "16. 西翼：低矮爬行層", "pos": Vector3(-91.3, 0.05, 72.0), "yaw": PI},
+		{"name": "17. 西翼：上層辦公迷宮", "pos": Vector3(-84.5, 4.55, 72.0), "yaw": PI},
+		{"name": "18. 西翼：高柱長廳", "pos": Vector3(-64.0, 0.05, 61.0), "yaw": PI},
 	]
 	for wp in waypoints:
 		var btn := _make_win95_button(" " + wp["name"])
@@ -704,19 +710,19 @@ class MapCanvas extends Control:
 		queue_redraw()
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
-		# World bounds: x [-90 .. +75], z [-40 .. +98]
-		var nx := (wx + 90.0) / 165.0
-		var nz := (wz + 40.0) / 138.0
+		# World bounds: x [-112 .. +75], z [-40 .. +106]
+		var nx := (wx + 112.0) / 187.0
+		var nz := (wz + 40.0) / 146.0
 		var pad := 14.0
 		var w := size.x - pad * 2.0
 		var h := size.y - pad * 2.0
 		var scale := minf(w, h)
-		var ox := (size.x - scale * (165.0 / 138.0)) * 0.5
-		if scale * (165.0 / 138.0) > w:
-			scale = w / (165.0 / 138.0)
+		var ox := (size.x - scale * (187.0 / 146.0)) * 0.5
+		if scale * (187.0 / 146.0) > w:
+			scale = w / (187.0 / 146.0)
 			ox = pad
 		var oy := (size.y - scale) * 0.5
-		return Vector2(ox + nx * scale * (165.0 / 138.0), oy + nz * scale)
+		return Vector2(ox + nx * scale * (187.0 / 146.0), oy + nz * scale)
 
 	func _draw_zone(x1: float, z1: float, x2: float, z2: float, fill: Color, label: String) -> void:
 		var p1 := _world_to_map(x1, z1)
@@ -739,6 +745,11 @@ class MapCanvas extends Control:
 		_draw_zone(4.0, 56.5, 26.0, 80.5, Color(0.10, 0.10, 0.12, 0.98), "熄燈區")
 		_draw_zone(-8.0, 50.5, 2.0, 62.5, Color(0.52, 0.22, 0.16, 0.95), "紅前")
 		_draw_zone(-8.0, 62.5, 2.0, 92.5, Color(0.65, 0.08, 0.07, 0.95), "紅室")
+		_draw_zone(-76.0, 34.0, -52.0, 58.0, Color(0.50, 0.45, 0.24, 0.95), "會議坑")
+		_draw_zone(-110.0, 34.0, -76.0, 70.0, Color(0.72, 0.68, 0.48, 0.95), "挑高中庭")
+		_draw_zone(-110.0, 70.0, -76.0, 104.0, Color(0.38, 0.36, 0.28, 0.95), "爬行層/上層迷宮")
+		_draw_zone(-76.0, 58.0, -44.0, 104.0, Color(0.58, 0.53, 0.26, 0.95), "高柱長廳")
+		_draw_zone(-52.0, 44.0, -44.0, 48.0, Color(0.55, 0.50, 0.22, 0.95), "")
 
 		var pm := _world_to_map(_player_pos.x, _player_pos.z)
 		var fwd := Vector2(-sin(_player_yaw), -cos(_player_yaw))
