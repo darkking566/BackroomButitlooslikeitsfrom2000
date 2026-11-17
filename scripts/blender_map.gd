@@ -4,6 +4,7 @@ extends Node3D
 # 入口：空房東牆 → 通道 x92..126 → 街道廣場 (x≥124, z 164..234)。Blender 原點 = 此節點原點，Blender Z 向上 → Godot Y。
 
 const MAP_PATH := "res://assets/models/blender_map.glb"
+const INTERACTIVES_PATH := "res://assets/models/blender_map_interactives.json"
 const LIGHTS_PATH := "res://assets/models/blender_map_lights.json"
 const DIM_KILL_DIST := 7.0     # 怪物周圍這個距離內的燈熄滅
 const DIM_FLICKER_DIST := 15.0 # 這個距離內開始亂閃
@@ -22,8 +23,10 @@ func _ready() -> void:
 	var inst := scene.instantiate() as Node3D
 	inst.position = ORIGIN
 	add_child(inst)
+	_load_interactives()
 	_style_materials(inst)
 	_add_collision(inst)
+	_setup_interactives(inst)
 	# 走廊末端與廣場的導航網格之間有 ~2 m 烘不起來的縫（門口立柱），用連結補上，怪物才走得進來
 	var link := NavigationLink3D.new()
 	link.bidirectional = true
@@ -66,7 +69,7 @@ func _add_collision(n: Node) -> void:
 	for c in n.get_children():
 		_add_collision(c)
 	var mi := n as MeshInstance3D
-	if mi == null or mi.mesh == null:
+	if mi == null or mi.mesh == null or _ia.has(String(mi.name)):
 		return
 	for i in mi.mesh.get_surface_count():
 		var arr := mi.mesh.surface_get_arrays(i)
@@ -545,4 +548,184 @@ func _engine_stream() -> AudioStreamWAV:
 		env = env * env
 		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.05)
 		x[i] = env * (lp * 0.5 + 0.6 * sin(TAU * (62.0 + 8.0 * env) * t))
+	return _wav(x, false)
+
+
+# --- 門與按鈕互動：Blender 的 func_door / func_door_rotating / func_button（只有帶幾何的 13 個；
+#     其餘約 150 個在匯入時就沒有模型）。資料見 blender_map_interactives.json ---
+const LINKS := {"OutpostDoorButton": "ThresholdBarricade"}  # 按鈕 -> 它開的門（依名稱推定）
+var _ia := {}                  # 節點名 -> 設定
+var _ia_body := {}             # 節點名 -> 互動體
+var _sfx := {}
+
+
+func _load_interactives() -> void:
+	var f := FileAccess.open(INTERACTIVES_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var data = JSON.parse_string(f.get_as_text())
+	if data is Array:
+		for e in data:
+			_ia[String(e["n"])] = e
+	_sfx = {"click": _click_stream(), "slide": _slide_stream(), "creak": _creak_stream()}
+
+
+func _setup_interactives(root: Node) -> void:
+	for nm in _ia.keys():
+		var mi := root.find_child(nm, true, false) as MeshInstance3D
+		if mi == null:
+			continue
+		var e: Dictionary = _ia[nm]
+		var parent := mi.get_parent()
+		var body := AnimatableBody3D.new()
+		body.name = "IA_" + nm
+		body.set_script(load("res://scripts/interactable_prop.gd"))
+		body.transform = mi.transform
+		parent.add_child(body)
+		parent.remove_child(mi)
+		body.add_child(mi)
+		mi.transform = Transform3D.IDENTITY
+		var cs := CollisionShape3D.new()
+		cs.shape = mi.mesh.create_convex_shape(true, true)
+		body.add_child(cs)
+		var snd := AudioStreamPlayer3D.new()
+		snd.max_distance = 30.0
+		snd.unit_size = 4.0
+		body.add_child(snd)
+		var kind: String = e["k"]
+		var st := {"open": false, "busy": false, "home": body.position, "rot": body.rotation.y, "snd": snd}
+		_ia_body[nm] = st
+		var d := Vector3(e["dir"][0], e["dir"][1], e["dir"][2]).normalized()
+		if kind == "func_button":
+			body.set("prompt_text", "按下按鈕")
+			body.set_meta("on_interact", func(pl: Node) -> void: _press(nm, body, mi, pl))
+		elif kind == "func_door_rotating":
+			body.set("prompt_text", "開門")
+			body.set_meta("on_interact", func(_pl: Node) -> void: _toggle_rot(nm, body, float(e["dist"])))
+		else:
+			body.set("prompt_text", "打開" if float(e["ext"]) < 1.0 else "開門")
+			body.set_meta("on_interact", func(_pl: Node) -> void: _toggle_slide(nm, body, d, maxf(float(e["ext"]) - float(e["lip"]), 0.08), float(e["speed"]), float(e["wait"])))
+
+
+func _sound(nm: String, which: String, pitch: float = 1.0) -> void:
+	var snd: AudioStreamPlayer3D = _ia_body[nm]["snd"]
+	snd.stream = _sfx[which]
+	snd.pitch_scale = pitch * randf_range(0.93, 1.07)
+	snd.volume_db = -4.0
+	snd.play()
+
+
+func _toggle_slide(nm: String, body: AnimatableBody3D, dir: Vector3, dist: float, speed: float, wait: float) -> void:
+	var st: Dictionary = _ia_body[nm]
+	if st["busy"]:
+		return
+	st["busy"] = true
+	var opening: bool = not st["open"]
+	var dur := clampf(dist / maxf(speed, 0.05), 0.35, 2.5)
+	var to: Vector3 = st["home"] + (dir * dist if opening else Vector3.ZERO)
+	_sound(nm, "slide" if dist > 0.8 else "creak", 0.8 if dist > 0.8 else 1.0)
+	var tw := create_tween()
+	tw.tween_property(body, "position", to, dur).set_trans(Tween.TRANS_SINE)
+	await tw.finished
+	st["open"] = opening
+	st["busy"] = false
+	body.set("prompt_text", ("關上" if opening else "打開") if dist < 1.0 else ("關門" if opening else "開門"))
+	if opening and wait > 0.0:
+		await get_tree().create_timer(wait).timeout  # Source 門開著等 wait 秒會自己關
+		if st["open"]:
+			_toggle_slide(nm, body, dir, dist, speed, wait)
+
+
+func _toggle_rot(nm: String, body: AnimatableBody3D, degrees: float) -> void:
+	var st: Dictionary = _ia_body[nm]
+	if st["busy"]:
+		return
+	st["busy"] = true
+	var opening: bool = not st["open"]
+	_sound(nm, "creak", 0.9)
+	var tw := create_tween()
+	tw.tween_property(body, "rotation:y", st["rot"] + (deg_to_rad(-degrees) if opening else 0.0), 0.9).set_trans(Tween.TRANS_SINE)
+	await tw.finished
+	st["open"] = opening
+	st["busy"] = false
+	body.set("prompt_text", "關門" if opening else "開門")
+
+
+func _press(nm: String, body: AnimatableBody3D, mi: MeshInstance3D, pl: Node) -> void:
+	var st: Dictionary = _ia_body[nm]
+	if st["busy"]:
+		return
+	st["busy"] = true
+	# 沿網格最薄的軸往「遠離玩家」的方向按下
+	var box := mi.mesh.get_aabb().size
+	var axis := Vector3.RIGHT
+	var thin := box.x
+	if box.y < thin:
+		axis = Vector3.UP
+		thin = box.y
+	if box.z < thin:
+		axis = Vector3.BACK
+		thin = box.z
+	var world_axis := (body.global_transform.basis * axis).normalized()
+	if world_axis.dot(body.global_position - (pl as Node3D).global_position) < 0.0:
+		world_axis = -world_axis
+	var depth := minf(0.03, maxf(thin * 0.7, 0.01))
+	_sound(nm, "click")
+	var tw := create_tween()
+	tw.tween_property(body, "global_position", body.global_position + world_axis * depth, 0.08)
+	tw.tween_interval(0.25)
+	tw.tween_property(body, "position", st["home"], 0.15)
+	await tw.finished
+	st["busy"] = false
+	var target: String = LINKS.get(nm, "")
+	if target != "" and _ia_body.has(target):
+		var e: Dictionary = _ia[target]
+		var node := find_child("IA_" + target, true, false) as AnimatableBody3D
+		if node != null:
+			var d := Vector3(e["dir"][0], e["dir"][1], e["dir"][2]).normalized()
+			_toggle_slide(target, node, d, maxf(float(e["ext"]) - float(e["lip"]), 0.08), float(e["speed"]), float(e["wait"]))
+
+
+func _click_stream() -> AudioStreamWAV:
+	var n := int(22050 * 0.12)
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 311
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.6)
+		x[i] = (lp * 0.7 + sin(TAU * 1700.0 * t) * 0.3) * exp(-t * 70.0) + sin(TAU * 220.0 * t) * exp(-t * 35.0) * 0.5
+	return _wav(x, false)
+
+
+func _slide_stream() -> AudioStreamWAV:
+	var n := int(22050 * 1.4)
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5120
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		var env := sin(PI * t / 1.4)
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.08 + 0.05 * env)
+		x[i] = env * (lp * 0.8 + sin(TAU * (90.0 + 25.0 * env) * t) * 0.5)
+	return _wav(x, false)
+
+
+func _creak_stream() -> AudioStreamWAV:
+	var n := int(22050 * 0.9)
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 877
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / 22050.0
+		var env := sin(PI * t / 0.9)
+		var f := 260.0 + 140.0 * sin(TAU * 1.6 * t) + 90.0 * env
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.3)
+		x[i] = env * (sin(TAU * f * t) * 0.45 + sin(TAU * f * 2.01 * t) * 0.2 + lp * 0.12)
 	return _wav(x, false)

@@ -14,5 +14,8 @@ func get_interact_prompt() -> String:
 
 
 func interact(player: Node) -> void:
+	if has_meta("on_interact"):  # 程式生成的互動物（例如 Blender 地圖的門/按鈕）直接走回呼
+		(get_meta("on_interact") as Callable).call(player)
+		return
 	if player and player.has_method("open_prop_ui"):
 		player.open_prop_ui(self)
