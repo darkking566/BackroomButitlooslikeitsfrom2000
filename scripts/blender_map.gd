@@ -201,6 +201,7 @@ func _fill_missing(m: StandardMaterial3D, nm: String) -> void:
 	if nm.contains("TOOLSBLACK"):
 		m.albedo_color = Color(0.02, 0.02, 0.02)
 		return
+	var real := _local_tex(nm)
 	var kind := "concrete"
 	if nm.contains("BRICK"):
 		kind = "brick"
@@ -218,7 +219,7 @@ func _fill_missing(m: StandardMaterial3D, nm: String) -> void:
 		kind = "plaster"
 	elif nm.contains("METAL") or nm.contains("CITADEL") or nm.contains("DOORBUTTON") or nm.contains("DUCT"):
 		kind = "metal"
-	m.albedo_texture = _proc_tex(kind)
+	m.albedo_texture = real if real else _proc_tex(kind)
 	if kind == "light":
 		m.emission_enabled = true
 		m.emission = Color(1.0, 0.97, 0.85)
@@ -266,3 +267,15 @@ func _proc_tex(kind: String) -> ImageTexture:
 	var t := ImageTexture.create_from_image(img)
 	_proc_cache[kind] = t
 	return t
+
+
+# 本機有 HL2 原版貼圖就用（assets/models/hl2_local/<材質名>.png，由 GMod 的 VPK 抽出；版權屬 Valve，已列入 .gitignore，不隨專案發布）
+func _local_tex(nm: String) -> ImageTexture:
+	var path := "res://assets/models/hl2_local/%s.png" % nm
+	if not FileAccess.file_exists(path):
+		return null
+	var img := Image.load_from_file(path)
+	if img == null:
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
