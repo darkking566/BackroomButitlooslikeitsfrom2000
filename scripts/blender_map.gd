@@ -39,6 +39,10 @@ func _process(delta: float) -> void:
 	var we := get_parent().get_node_or_null("WorldEnvironment") as WorldEnvironment
 	if player == null or we == null or we.environment == null:
 		return
+	# 掉出地圖（最低的地面約 y=-111）：送回街道廣場
+	if player.position.x > 105.0 and player.position.y < -140.0:
+		player.call("_on_teleport_requested", Vector3(136.0, -1.95, 175.0), -PI * 0.5)
+		return
 	if not _pool.is_empty():
 		_update_lights(delta, player.global_position if player.position.x > 90.0 else Vector3(-9999, -9999, -9999))
 	var w := clampf((player.position.x - 100.0) / 24.0, 0.0, 1.0)
