@@ -175,6 +175,9 @@ func _build_habitable_zone() -> void:
 	# 3. 南側：積水車道斜坡封鎖區 (x: -8..8, z: 20..30)
 	_build_south_ramp(geo, lights, props)
 
+	# 4. 東側：地下二層（B2）車道斜坡＋挑高大型貨架倉庫 (x: 24..76)
+	_build_b2_warehouse(geo, lights, props)
+
 
 func _init_local_materials() -> void:
 	_mat_concrete_dark = StandardMaterial3D.new()
@@ -204,9 +207,10 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	_add_box(geo, Vector3(48.0, 0.2, 40.0), Vector3(0.0, -0.1, 0.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(48.0, 0.2, 40.0), Vector3(0.0, CEIL_H + 0.1, 0.0), _mat_concrete_dark, true)
 
-	# 四周外牆（北牆 z=-20 留寬度 6m 通道往北側走廊；南牆 z=20 留寬度 8m 通道往南側斜坡）
+	# 四周外牆（北牆 z=-20 留 6m；南牆 z=20 留 8m；東牆 x=24 留 6m 往 B2 斜坡）
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 40.0), Vector3(-24.0, CEIL_H * 0.5, 0.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 40.0), Vector3(24.0, CEIL_H * 0.5, 0.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 17.0), Vector3(24.0, CEIL_H * 0.5, -11.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 17.0), Vector3(24.0, CEIL_H * 0.5, 11.5), MAT_HALL_WALL, true)
 
 	# 北牆 (z = -20)，中間 x: -3..3 開口
 	_add_box(geo, Vector3(21.0, CEIL_H, WALL_T), Vector3(-13.5, CEIL_H * 0.5, -20.0), MAT_HALL_WALL, true)
@@ -426,6 +430,116 @@ func _build_south_ramp(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void
 		+ "在無盡的潮濕混凝土迷宮中，這間備用發電機供電的避難所是目前最穩定的歇腳處。\n\n"
 		+ "（你可以隨時按 [M] 開啟導航終端機返回「閾界」，或繼續探索這座停車場。）"
 	)
+
+
+func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# 1. 車道斜坡 (x: 24..40, z: -3..3)，從 y=0.0 緩降至 y=-4.0
+	var ramp_len := 16.0
+	var drop := 4.0
+	var slope_ang := atan2(-drop, ramp_len)
+	var diag_len := sqrt(ramp_len * ramp_len + drop * drop)
+	_add_rotated_box(geo, Vector3(diag_len + 0.4, 0.25, 6.0), Vector3(32.0, -drop * 0.5 - 0.12, 0.0), Vector3(0.0, 0.0, slope_ang), MAT_HALL_FLOOR, true)
+	# 斜坡兩側矮護欄與外牆
+	_add_box(geo, Vector3(16.0, 8.0, WALL_T), Vector3(32.0, -0.2, -3.2), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(16.0, 8.0, WALL_T), Vector3(32.0, -0.2, 3.2), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(16.0, 0.25, 6.4), Vector3(32.0, 3.6, 0.0), _mat_concrete_dark, true)
+	_add_omni(lights, Vector3(25.0, 3.0, 0.0), Color(0.84, 0.90, 0.98), 0.9, 10.0, false, false)
+	_add_omni(lights, Vector3(33.5, 1.0, 0.0), Color(0.75, 0.86, 0.96), 0.85, 11.0, false, true)
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "RampCone_1", Vector3(24.3, 0.0, -2.5), 0.0, Vector3(0.55, 0.72, 0.55))
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "RampCone_2", Vector3(24.3, 0.0, 2.5), 25.0, Vector3(0.55, 0.72, 0.55))
+
+	# 2. B2 挑高大型貨架倉庫 (x: 40..76, z: -18..18, 地板 y=-4.0, 天花 y=2.0，挑高 6m)
+	var by := -4.0
+	var b2_h := 6.0
+	_add_box(geo, Vector3(36.0, 0.2, 36.0), Vector3(58.0, by - 0.1, 0.0), MAT_HALL_FLOOR, true)
+	_add_box(geo, Vector3(36.0, 0.2, 36.0), Vector3(58.0, by + b2_h + 0.1, 0.0), _mat_concrete_dark, true)
+	# B2 四周牆壁（西牆 x=40 中間 z:-3..3 留斜坡開口）
+	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(40.0, by + b2_h * 0.5, -10.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(40.0, by + b2_h * 0.5, 10.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, 1.8, 6.0), Vector3(40.0, by + b2_h - 0.9, 0.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, b2_h, 36.0), Vector3(76.0, by + b2_h * 0.5, 0.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(36.0, b2_h, WALL_T), Vector3(58.0, by + b2_h * 0.5, -18.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(36.0, b2_h, WALL_T), Vector3(58.0, by + b2_h * 0.5, 18.0), MAT_HALL_WALL, true)
+
+	# B2 反射探針與中央積水
+	var b2_probe := ReflectionProbe.new()
+	b2_probe.position = Vector3(58.0, by + b2_h * 0.5, 0.0)
+	b2_probe.size = Vector3(36.0, b2_h + 0.5, 36.0)
+	b2_probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	add_child(b2_probe)
+	_add_puddle(geo, Vector3(54.0, by + 0.015, 0.0), Vector2(10.0, 6.5))
+
+	# B2 挑高混凝土柱與冷白燈
+	for px in [48.0, 60.0, 70.0]:
+		for pz in [-9.0, 9.0]:
+			_add_box(geo, Vector3(1.0, b2_h, 1.0), Vector3(px, by + b2_h * 0.5, pz), MAT_HALL_WALL, true)
+			_add_box(geo, Vector3(1.06, 0.25, 1.06), Vector3(px, by + 0.8, pz), _mat_hazard, false)
+	for lx in [46.0, 58.0, 70.0]:
+		for lz in [-10.0, 0.0, 10.0]:
+			var lp := Vector3(lx, by + b2_h - 0.15, lz)
+			_add_box(geo, Vector3(1.8, 0.06, 0.3), lp + Vector3(0.0, 0.1, 0.0), MAT_FLUORESCENT, false)
+			_add_omni(lights, lp - Vector3(0.0, 0.3, 0.0), Color(0.80, 0.89, 0.98), 1.35, 15.0, false, lx == 70.0 and lz == 0.0)
+
+	# B2 多層工業貨架陣列（兩排通道 + 堆放木箱/棧板/鐵桶）
+	for rx in [50.0, 58.0, 66.0]:
+		for rz in [-13.5, -5.5, 5.5, 13.5]:
+			_add_warehouse_rack(geo, props, Vector3(rx, by, rz))
+
+	# B2 工頭辦公桌與檔案紀錄
+	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "B2Desk", Vector3(44.5, by, -14.5), 0.0, Vector3(1.5, 0.78, 0.8))
+	_spawn_model(props, PROP_DIR + "computer_screen.glb", "B2Screen", Vector3(44.2, by + 0.78, -14.5), 0.0, Vector3(0.5, 0.45, 0.4))
+	_spawn_model(props, PROP_DIR + "car_suv.glb", "B2CargoSUV", Vector3(68.0, by, 1.5), 165.0, Vector3(4.5, 1.65, 2.25))
+	_add_note_prop(props, "B2WarehouseNote", Vector3(44.9, by + 0.80, -14.5),
+		"閱讀 B2 貨架倉庫的盤點表", "B2 大型倉庫盤點紀錄",
+		"【宜居地帶 — B2 地下倉庫區】\n\n"
+		+ "這裡的天花板比一樓停車場高出許多，整排貨架上堆滿了沒有標籤的密封木箱。\n"
+		+ "我們試著撬開過三個箱子：第一個裡面全是杏仁水，第二個是空白的錄影帶，第三個……是空的，但箱蓋內側有抓痕。\n\n"
+		+ "「別在晚上走進最東邊的貨架通道。」"
+	)
+
+
+func _add_warehouse_rack(geo: StaticBody3D, props: Node3D, base_pos: Vector3) -> void:
+	# 寬 4.2m、深 1.5m、高 4.0m 的兩層工業貨架
+	var w := 4.2
+	var d := 1.5
+	var h := 4.0
+	for sx in [-w * 0.46, w * 0.46]:
+		for sz in [-d * 0.44, d * 0.44]:
+			_add_box(geo, Vector3(0.14, h, 0.14), base_pos + Vector3(sx, h * 0.5, sz), _mat_pipe, false)
+	_add_box(geo, Vector3(w, 0.12, d), base_pos + Vector3(0.0, 1.6, 0.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(w, 0.12, d), base_pos + Vector3(0.0, 3.2, 0.0), _mat_concrete_dark, false)
+	# 整體貨架碰撞箱，避免玩家卡進鋼柱縫裡
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(w, h, d)
+	col.shape = shape
+	col.position = base_pos + Vector3(0.0, h * 0.5, 0.0)
+	geo.add_child(col)
+	# 貨架上擺放箱子與鐵桶
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "RackBoxA", base_pos + Vector3(-1.1, 1.66, 0.0), 8.0, Vector3(0.1, 0.1, 0.1))
+	_spawn_model(props, PROP_DIR + "cardboard_boxes.glb", "RackBoxB", base_pos + Vector3(0.9, 1.66, 0.0), -12.0, Vector3(0.1, 0.1, 0.1))
+	_spawn_model(props, PROP_DIR + "barrel.glb", "RackBarrel", base_pos + Vector3(0.0, 3.26, 0.0), 0.0, Vector3(0.1, 0.1, 0.1))
+
+
+func _add_rotated_box(parent: Node3D, sz: Vector3, pos: Vector3, rot_rad: Vector3, mat: Material, with_col: bool) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = sz
+	bm.subdivide_width = clampi(int(sz.x / 2.0) - 1, 0, 16)
+	bm.subdivide_depth = clampi(int(sz.z / 2.0) - 1, 0, 16)
+	mi.mesh = bm
+	mi.position = pos
+	mi.rotation = rot_rad
+	mi.material_override = mat
+	parent.add_child(mi)
+	if with_col:
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = sz
+		col.shape = shape
+		col.position = pos
+		col.rotation = rot_rad
+		parent.add_child(col)
 
 
 # --- Geometry & Prop Helpers ---
