@@ -402,7 +402,10 @@ func _build_blackout(body: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	# East wall splits around basement stair opening z [70 .. 72]
 	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 63.25), Vector3(0.3, WALL_H, 13.5), MAT_WALLPAPER)
 	_add_wall(body, Vector3(26.15, WALL_H * 0.5, 76.25), Vector3(0.3, WALL_H, 8.5), MAT_WALLPAPER)
-	_add_wall(body, Vector3(15.0, WALL_H * 0.5, 80.65), Vector3(22.0, WALL_H, 0.3), MAT_WALLPAPER)
+	# South wall splits around the tapes-wing corridor x [8 .. 10] (door height 2.6)
+	_add_wall(body, Vector3(6.0, WALL_H * 0.5, 80.65), Vector3(4.0, WALL_H, 0.3), MAT_WALLPAPER)
+	_add_wall(body, Vector3(18.0, WALL_H * 0.5, 80.65), Vector3(16.0, WALL_H, 0.3), MAT_WALLPAPER)
+	_add_wall(body, Vector3(9.0, 2.6 + (WALL_H - 2.6) * 0.5, 80.65), Vector3(2.0, WALL_H - 2.6, 0.3), MAT_WALLPAPER)
 
 	# Interior maze walls & dead ceiling panels (no lights!)
 	_add_wall(body, Vector3(10.0, WALL_H * 0.5, 63.0), Vector3(7.0, WALL_H, 0.4), MAT_WALLPAPER)

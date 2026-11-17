@@ -7,11 +7,13 @@
 |---|---|---|---|
 | armchair.glb | Couch Small | Quaternius | https://poly.pizza/m/X9msj0gtb5 |
 | barrel.glb | Barrel | Quaternius | https://poly.pizza/m/MraIiFnpAY |
+| boat.glb | Boat | Quaternius | https://poly.pizza/m/5UEl54KsuC |
 | box_closed.glb | Cardboard Box Closed | Kenney | https://poly.pizza/m/zv8NvYfT9B |
 | bucket.glb | Bucket | Quaternius | https://poly.pizza/m/83obI9bNun |
 | cardboard_boxes.glb | Cardboard Boxes | Quaternius | https://poly.pizza/m/rdKKO0DvMG |
 | coffee_machine.glb | Kitchen Coffee Machine | Kenney | https://poly.pizza/m/jBUiOz36vs |
 | computer_screen.glb | Computer Screen | Kenney | https://poly.pizza/m/V5Qo141OcB |
+| floor_lamp.glb | Light Floor | Quaternius | https://poly.pizza/m/eBQtooeh43 |
 | fridge.glb | Refrigirator | CreativeTrio | https://poly.pizza/m/G2vcjG4nvK |
 | ladder.glb | Ladder | Quaternius | https://poly.pizza/m/h2xOIRr1OP |
 | pallet.glb | Pallet | Quaternius | https://poly.pizza/m/cUAsYHDqfD |

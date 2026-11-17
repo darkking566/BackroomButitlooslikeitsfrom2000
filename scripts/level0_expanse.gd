@@ -40,6 +40,7 @@ const LEVEL0_AMBIENT_COLOR := Color(0.65, 0.60, 0.38)
 const LEVEL0_AMBIENT_ENERGY := 0.38
 
 var _active_zone: String = ""
+var _fade_t: float = 0.0
 var _world_env: WorldEnvironment
 var _player: Node3D
 var _body: StaticBody3D
@@ -82,58 +83,56 @@ func _init_materials() -> void:
 
 
 func _process(delta: float) -> void:
-	if Engine.is_editor_hint() or _active_zone == "" or not _world_env or not _world_env.environment:
+	if Engine.is_editor_hint() or not _world_env or not _world_env.environment:
 		return
-	var fog := LEVEL0_FOG_COLOR
-	var dens := LEVEL0_FOG_DENSITY
-	var amb := LEVEL0_AMBIENT_COLOR
-	var amb_e := LEVEL0_AMBIENT_ENERGY
-	match _active_zone:
-		"atrium": # 挑高空間要看得到對面迴廊
-			dens = 0.035
-			amb_e = 0.45
-		"tower", "warehouse":
-			dens = 0.04
-			amb = Color(0.58, 0.58, 0.48)
-			amb_e = 0.42
-		"basement":
-			fog = Color(0.22, 0.24, 0.16)
-			dens = 0.12
-			amb = Color(0.32, 0.36, 0.24)
-			amb_e = 0.2
-		"crawl":
-			fog = Color(0.30, 0.27, 0.15)
-			dens = 0.11
-			amb = Color(0.40, 0.36, 0.22)
-			amb_e = 0.22
+	if _active_zone == "":
+		if _fade_t <= 0.0:
+			return # 不在本腳本的區域內：交給其他區域腳本控制環境
+		_fade_t -= delta
+	var p := _zone_env(_active_zone)
 	var t := clampf(delta * 2.5, 0.0, 1.0)
 	var env := _world_env.environment
-	env.fog_light_color = env.fog_light_color.lerp(fog, t)
-	env.fog_density = lerpf(env.fog_density, dens, t)
-	env.ambient_light_color = env.ambient_light_color.lerp(amb, t)
-	env.ambient_light_energy = lerpf(env.ambient_light_energy, amb_e, t)
+	env.fog_light_color = env.fog_light_color.lerp(p[0], t)
+	env.fog_density = lerpf(env.fog_density, p[1], t)
+	env.ambient_light_color = env.ambient_light_color.lerp(p[2], t)
+	env.ambient_light_energy = lerpf(env.ambient_light_energy, p[3], t)
 
 
+# 回傳 [霧色, 霧密度, 環境光色, 環境光強度]；子類別覆寫以加入自己的區域
+func _zone_env(zone: String) -> Array:
+	match zone:
+		"atrium": # 挑高空間要看得到對面迴廊
+			return [LEVEL0_FOG_COLOR, 0.035, LEVEL0_AMBIENT_COLOR, 0.45]
+		"tower", "warehouse":
+			return [LEVEL0_FOG_COLOR, 0.04, Color(0.58, 0.58, 0.48), 0.42]
+		"basement":
+			return [Color(0.22, 0.24, 0.16), 0.12, Color(0.32, 0.36, 0.24), 0.2]
+		"crawl":
+			return [Color(0.30, 0.27, 0.15), 0.11, Color(0.40, 0.36, 0.22), 0.22]
+	return [LEVEL0_FOG_COLOR, LEVEL0_FOG_DENSITY, LEVEL0_AMBIENT_COLOR, LEVEL0_AMBIENT_ENERGY]
+
+
+# 離開區域時不硬切，用 2 秒漸變回預設（相鄰區域之間就有過渡）
 func _set_zone(z: String) -> void:
 	_active_zone = z
-	if z == "" and _world_env and _world_env.environment:
-		var env := _world_env.environment
-		env.fog_light_color = LEVEL0_FOG_COLOR
-		env.fog_density = LEVEL0_FOG_DENSITY
-		env.ambient_light_color = LEVEL0_AMBIENT_COLOR
-		env.ambient_light_energy = LEVEL0_AMBIENT_ENERGY
+	if z == "":
+		_fade_t = 2.0
+
+
+func _make_roots(prefix: String) -> void:
+	_body = StaticBody3D.new()
+	_body.name = prefix + "Geometry"
+	add_child(_body)
+	_lights = Node3D.new()
+	_lights.name = prefix + "Lights"
+	add_child(_lights)
+	_props = Node3D.new()
+	_props.name = prefix + "Props"
+	add_child(_props)
 
 
 func _build() -> void:
-	_body = StaticBody3D.new()
-	_body.name = "ExpanseGeometry"
-	add_child(_body)
-	_lights = Node3D.new()
-	_lights.name = "ExpanseLights"
-	add_child(_lights)
-	_props = Node3D.new()
-	_props.name = "ExpanseProps"
-	add_child(_props)
+	_make_roots("Expanse")
 
 	_build_corridor()
 	_build_pit_room()
@@ -321,7 +320,7 @@ func _build_column_hall() -> void:
 			_box(Vector3(cx, 3.0, cz), Vector3(1.2, 6.0, 1.2), MAT_WALLPAPER)
 	# 牆（北牆 x[-76..-52] 已由會議坑南牆提供）
 	_wall(true, z1, -52.0, x2, 0.0, 6.0, MAT_WALLPAPER)
-	_wall(false, x2, z1, z2, 0.0, 6.0, MAT_WALLPAPER)
+	_wall(false, x2, z1, z2, 0.0, 6.0, MAT_WALLPAPER, [Vector4(96.0, 99.0, 0.0, 2.6)]) # → 錄影帶翼小船走廊
 	_wall(true, z2, x1, x2, 0.0, 6.0, MAT_WALLPAPER)
 	for lz in [66.0, 80.0, 94.0]:
 		_light(Vector3(-70.0, 2.98, lz), 0.55, 6.5)
@@ -486,6 +485,7 @@ const PROP_SIZE := {
 	"ladder": Vector3(0.37, 2.6, 0.1), "pallet": Vector3(1.2, 0.14, 1.03),
 	"pallet_broken": Vector3(1.2, 0.18, 1.04), "plant": Vector3(1.1, 1.03, 0.99),
 	"shelf_small": Vector3(1.4, 0.52, 0.74), "trashcan": Vector3(0.42, 0.6, 0.26),
+	"boat": Vector3(1.66, 0.71, 3.2), "floor_lamp": Vector3(0.3, 1.7, 0.31),
 	# 既有辦公室模型
 	"desk": Vector3(1.45, 1.16, 0.78), "chair": Vector3(0.55, 0.95, 0.55), "cabinet": Vector3(0.48, 1.32, 0.62),
 }

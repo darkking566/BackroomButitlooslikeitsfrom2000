@@ -569,6 +569,12 @@ func _build_overlay() -> void:
 		{"name": "21. 東南翼：塔頂貓道口", "pos": Vector3(60.0, 7.25, 46.9), "yaw": PI},
 		{"name": "22. 東南翼：倉庫地面", "pos": Vector3(60.0, 0.05, 79.0), "yaw": -PI * 0.5},
 		{"name": "23. 東南翼：地下檔案室", "pos": Vector3(44.0, -1.95, 75.0), "yaw": PI * 0.5},
+		{"name": "24. 錄影帶翼：小船走廊", "pos": Vector3(-42.0, 0.05, 97.5), "yaw": -PI * 0.5},
+		{"name": "25. 錄影帶翼：檯燈客廳", "pos": Vector3(-13.0, 0.05, 113.5), "yaw": PI},
+		{"name": "26. 錄影帶翼：青色大廳", "pos": Vector3(9.0, 0.05, 95.5), "yaw": PI},
+		{"name": "27. 錄影帶翼：白色挑高廳", "pos": Vector3(15.5, 0.05, 120.0), "yaw": PI},
+		{"name": "28. 錄影帶翼：藍色樓梯間", "pos": Vector3(6.0, -1.95, 147.0), "yaw": PI},
+		{"name": "29. 錄影帶翼：夾層", "pos": Vector3(0.0, 4.05, 142.0), "yaw": 0.0},
 	]
 	for wp in waypoints:
 		var btn := _make_win95_button(" " + wp["name"])
@@ -717,17 +723,17 @@ class MapCanvas extends Control:
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 200.0
-		var nz := (wz + 40.0) / 146.0
+		var nz := (wz + 40.0) / 205.0
 		var pad := 14.0
 		var w := size.x - pad * 2.0
 		var h := size.y - pad * 2.0
 		var scale := minf(w, h)
-		var ox := (size.x - scale * (200.0 / 146.0)) * 0.5
-		if scale * (200.0 / 146.0) > w:
-			scale = w / (200.0 / 146.0)
+		var ox := (size.x - scale * (200.0 / 205.0)) * 0.5
+		if scale * (200.0 / 205.0) > w:
+			scale = w / (200.0 / 205.0)
 			ox = pad
 		var oy := (size.y - scale) * 0.5
-		return Vector2(ox + nx * scale * (200.0 / 146.0), oy + nz * scale)
+		return Vector2(ox + nx * scale * (200.0 / 205.0), oy + nz * scale)
 
 	func _draw_zone(x1: float, z1: float, x2: float, z2: float, fill: Color, label: String) -> void:
 		var p1 := _world_to_map(x1, z1)
@@ -759,6 +765,15 @@ class MapCanvas extends Control:
 		_draw_zone(56.0, 34.0, 70.0, 48.0, Color(0.74, 0.70, 0.52, 0.95), "螺旋塔")
 		_draw_zone(56.0, 48.0, 86.0, 82.0, Color(0.42, 0.40, 0.32, 0.95), "貓道倉庫")
 		_draw_zone(26.0, 60.0, 56.0, 80.0, Color(0.26, 0.28, 0.20, 0.95), "地下檔案室")
+		_draw_zone(-44.0, 95.0, -20.0, 100.0, Color(0.80, 0.70, 0.38, 0.95), "小船走廊")
+		_draw_zone(-20.0, 94.0, 2.0, 101.0, Color(0.74, 0.50, 0.22, 0.95), "")
+		_draw_zone(-14.0, 101.0, -10.0, 112.0, Color(0.55, 0.38, 0.85, 0.95), "")
+		_draw_zone(-22.0, 112.0, -4.0, 126.0, Color(0.62, 0.40, 0.24, 0.95), "檯燈客廳")
+		_draw_zone(8.0, 80.8, 10.0, 94.0, Color(0.55, 0.50, 0.22, 0.95), "")
+		_draw_zone(2.0, 94.0, 26.0, 113.0, Color(0.22, 0.55, 0.56, 0.95), "青色大廳")
+		_draw_zone(12.0, 113.0, 19.0, 118.0, Color(0.86, 0.72, 0.32, 0.95), "")
+		_draw_zone(-4.0, 118.0, 26.0, 146.0, Color(0.86, 0.85, 0.80, 0.95), "白色挑高廳")
+		_draw_zone(4.0, 146.0, 12.0, 163.0, Color(0.32, 0.46, 0.78, 0.95), "藍梯")
 
 		var pm := _world_to_map(_player_pos.x, _player_pos.z)
 		var fwd := Vector2(-sin(_player_yaw), -cos(_player_yaw))
