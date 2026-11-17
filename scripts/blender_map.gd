@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.52, 0.40), t)
 	# 環境光跟「附近有沒有亮著的燈」走：燈下 0.28，離燈 14 m 以上降到 0.05（不開手電筒幾乎看不見）；
 	# 戶外（地面層）保底 0.14 當月光
-	var base := lerpf(0.04, 0.14, _lit)
+	var base := lerpf(0.08, 0.14, _lit)
 	if player.position.y > -10.0 and player.position.y < 12.0:
 		base = maxf(base, 0.09)
 	_amb = lerpf(_amb, base, clampf(delta * 2.0, 0.0, 1.0))
@@ -285,7 +285,7 @@ func _update_lights(delta: float, ppos: Vector3) -> void:
 				var e: Array = _src[ni]
 				_pool[s].position = Vector3(e[0], e[1], e[2])
 				_pool[s].light_color = Color(e[3], e[4], e[5])
-				_pool[s].omni_range = clampf(sqrt(e[6]) * 0.6, 6.0, 28.0)
+				_pool[s].omni_range = clampf(sqrt(e[6]) * 0.4, 5.0, 12.0)
 				_slot_goal[s] = _energy_of(ni)
 	var k := clampf(delta * 5.0, 0.0, 1.0)
 	var mon := get_parent().get_node_or_null("Monster") as Node3D
@@ -311,7 +311,7 @@ func _update_lights(delta: float, ppos: Vector3) -> void:
 
 
 func _energy_of(i: int) -> float:
-	return clampf(0.6 + float(_src[i][6]) / 3000.0, 0.8, 1.8)  # 和 Level0 的日光燈同一個量級（0.55–1.55）
+	return clampf(0.6 + float(_src[i][6]) / 4000.0, 0.85, 1.6)  # 和 Level0 的日光燈同一個量級（0.55–1.55）
 
 
 # --- 原圖缺貼圖的材質（Half-Life 2 內建貼圖，沒附在地圖包裡）：依名稱用程式生成的小圖補上 ---

@@ -95,7 +95,7 @@ func _style_and_collide(n: Node, old: Node) -> void:
 		d.normal_enabled = false
 		d.roughness = 1.0
 		d.metallic = 0.0
-		d.albedo_texture = PixelStyle.pixelate(d.albedo_texture)
+		d.albedo_texture = PixelStyle.pixelate(d.albedo_texture, 0.95, 0.95)  # 新地圖貼圖在生成時已經調暗過
 		if nm.contains("LIGHT_NEON") or nm.contains("LIGHTS_ON"):
 			d.emission_enabled = true
 			d.emission = Color(1.0, 0.95, 0.75)

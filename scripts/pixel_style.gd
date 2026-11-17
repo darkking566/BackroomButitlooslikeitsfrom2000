@@ -24,7 +24,7 @@ static var _pix := {}
 
 
 # 把高解析貼圖縮成 64 px 的像素風（最近鄰），並稍微壓暗、降飽和；同一張只處理一次
-static func pixelate(tex: Texture2D) -> Texture2D:
+static func pixelate(tex: Texture2D, bright: float = 0.8, sat: float = 0.55) -> Texture2D:
 	if tex == null:
 		return null
 	var id := tex.get_instance_id()
@@ -35,8 +35,13 @@ static func pixelate(tex: Texture2D) -> Texture2D:
 		return tex
 	if img.is_compressed():
 		img.decompress()
-	img.adjust_bcs(0.92, 1.0, 0.7)
+	img.adjust_bcs(bright, 1.0, sat)
 	img.resize(mini(img.get_width(), 64), mini(img.get_height(), 64), Image.INTERPOLATE_NEAREST)
+	var avg := img.duplicate() as Image
+	avg.resize(1, 1, Image.INTERPOLATE_BILINEAR)
+	var lum := avg.get_pixel(0, 0).get_luminance()
+	if lum > 0.55:
+		img.adjust_bcs(0.55 / lum, 1.0, 1.0)  # 純白的牆壓到和其他牆同一個亮度，不然會在昏暗的場景裡爆白
 	img.generate_mipmaps()
 	var t := ImageTexture.create_from_image(img)
 	_pix[id] = t
