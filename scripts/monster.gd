@@ -15,6 +15,10 @@ const DREAD_DIST := 15.0   # 這個距離內畫面開始劣化（穿牆也算：
 const MAX_CHASE_SPEED := 4.9  # 越追越快的上限，必須低於玩家跑速 5.0
 const FRENZY_SPEED := 9.0  # 狂暴模式：接近玩家跑速兩倍，跑不掉
 
+const POV_LAYER := 20      # 怪物模型放在這個渲染層，怪物視角攝影機才不會拍到自己的頭
+const POV_EYE_Y := 1.7     # 怪物視角攝影機離地高度
+const POV_SIZE := Vector2(360, 270)
+
 const MODEL_PATH := "res://assets/models/monster.glb"
 
 @export var model_scene: PackedScene
@@ -77,6 +81,11 @@ var _post_mat: ShaderMaterial
 var _post_base := {}
 var _heavy: AudioStreamPlayer3D  # 狂暴模式的沉重腳步
 var _noclip := false           # 狂暴模式下目前是否正在穿牆
+var _pov_vp: SubViewport       # 怪物視角畫面（只在螢幕翻起時才渲染）
+var _pov_cam: Camera3D
+var _pov_panel: Control
+var _pov_open := false
+var _pov_tween: Tween
 
 
 func _ready() -> void:
@@ -87,6 +96,7 @@ func _ready() -> void:
 	if _ui:
 		_ui.restart_requested.connect(_reset)
 	_build_sprite()
+	_build_pov()
 	_steps = AudioStreamPlayer3D.new()
 	_steps.stream = BackroomsAudio.create_carpet_footstep_stream()
 	_steps.pitch_scale = 0.55  # 比玩家腳步低沉
@@ -533,6 +543,90 @@ func _build_sprite() -> void:
 			_head_bone = _skel.find_bone("head")
 			_chest_bone = _skel.find_bone("chest")
 			_skel.skeleton_updated.connect(_on_skeleton_updated)
+
+
+func _build_pov() -> void:
+	if _model:
+		for v in _model.find_children("*", "VisualInstance3D", true, false):
+			v.layers = 1 << (POV_LAYER - 1)
+	_pov_vp = SubViewport.new()
+	_pov_vp.size = Vector2i(320, 240)
+	_pov_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_pov_vp)
+	_pov_cam = Camera3D.new()
+	_pov_cam.cull_mask &= ~(1 << (POV_LAYER - 1))
+	_pov_cam.fov = 95.0  # 廣角，像監視器魚眼
+	_pov_cam.top_level = true
+	_pov_vp.add_child(_pov_cam)
+
+	var layer := CanvasLayer.new()
+	layer.layer = 2  # 畫在 PS2 濾鏡（第 1 層）上方：靠近怪物時畫面劣化，螢幕仍看得清楚
+	add_child(layer)
+	_pov_panel = PanelContainer.new()
+	var bezel := StyleBoxFlat.new()
+	bezel.bg_color = Color(0.13, 0.13, 0.12)
+	bezel.set_border_width_all(10)
+	bezel.border_color = Color(0.22, 0.22, 0.2)
+	bezel.set_corner_radius_all(6)
+	_pov_panel.add_theme_stylebox_override("panel", bezel)
+	_pov_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_pov_panel.offset_left = -POV_SIZE.x - 16
+	_pov_panel.offset_top = -POV_SIZE.y - 16 - 28  # 28 = Win95 工作列高度
+	_pov_panel.offset_right = -16
+	_pov_panel.offset_bottom = -16 - 28
+	_pov_panel.pivot_offset = Vector2(POV_SIZE.x * 0.5, POV_SIZE.y)  # 以底邊為軸往上翻
+	_pov_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pov_panel.visible = false
+	layer.add_child(_pov_panel)
+	var screen := TextureRect.new()
+	screen.texture = _pov_vp.get_texture()
+	screen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	screen.modulate = Color(1.0, 0.72, 0.68)  # 偏紅的監視器色調
+	_pov_panel.add_child(screen)
+	var rec := Label.new()
+	rec.text = " ● REC  CAM-??"
+	rec.add_theme_color_override("font_color", Color(1.0, 0.15, 0.1))
+	rec.add_theme_font_size_override("font_size", 13)
+	rec.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	rec.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_pov_panel.add_child(rec)
+
+
+func _input(event: InputEvent) -> void:
+	var k := event as InputEventKey
+	if k and k.pressed and not k.echo and (k.physical_keycode == KEY_Q or k.keycode == KEY_Q):
+		if _ui and _ui.is_popup_open():
+			return
+		_toggle_pov()
+
+
+func _toggle_pov() -> void:
+	_pov_open = not _pov_open
+	if _pov_tween:
+		_pov_tween.kill()
+	_pov_tween = create_tween()
+	if _pov_open:
+		_pov_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		_pov_panel.visible = true
+		_pov_panel.scale = Vector2(1.0, 0.0)
+		_pov_tween.tween_property(_pov_panel, "scale:y", 1.0, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		_pov_tween.tween_property(_pov_panel, "scale:y", 0.0, 0.15)
+		_pov_tween.tween_callback(func() -> void:
+			_pov_panel.visible = false
+			_pov_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		)
+
+
+func _process(_delta: float) -> void:
+	if not _pov_open:
+		return
+	_pov_panel.visible = not (_ui and _ui.is_popup_open())  # 開地圖、設定等視窗時先藏起來
+	# 攝影機跟著怪物的頭：面向模型正面（模型朝 +Z、攝影機朝 -Z），歪脖子時畫面也跟著歪
+	var yaw := _model.rotation.y if _model else 0.0
+	_pov_cam.global_position = global_position + Vector3.UP * (POV_EYE_Y - 0.3)
+	_pov_cam.global_rotation = Vector3(0.0, yaw + PI, _snap_roll * 0.6)
 
 
 func _on_skeleton_updated() -> void:
