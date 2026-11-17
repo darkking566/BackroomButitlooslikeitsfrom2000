@@ -18,6 +18,12 @@ func _ready() -> void:
 	inst.position = ORIGIN
 	add_child(inst)
 	_add_collision(inst)
+	# 走廊末端與廣場的導航網格之間有 ~2 m 烘不起來的縫（門口立柱），用連結補上，怪物才走得進來
+	var link := NavigationLink3D.new()
+	link.bidirectional = true
+	link.start_position = Vector3(128.0, -1.6, 186.0)
+	link.end_position = Vector3(131.5, -1.6, 186.0)
+	add_child(link)
 
 
 # 靠近/進入本地圖後接管環境（霧淡、環境光偏冷）：x 100→124 漸變，離開後交還給 Level0 的區域腳本
@@ -37,8 +43,26 @@ func _process(delta: float) -> void:
 	env.ambient_light_energy = lerpf(env.ambient_light_energy, 0.55, t)
 
 
+# 碰撞：每個三角形正反面各放一份。Blender/Source 的地板法線方向不可靠，
+# 導航烘焙只認朝上的面，單面碰撞會讓整張地圖烘不出可走區域（怪物進不來）。
 func _add_collision(n: Node) -> void:
 	for c in n.get_children():
 		_add_collision(c)
 	if n is MeshInstance3D and (n as MeshInstance3D).mesh:
-		(n as MeshInstance3D).create_trimesh_collision()
+		var faces := (n as MeshInstance3D).mesh.get_faces()
+		var both := PackedVector3Array()
+		both.resize(faces.size() * 2)
+		for i in range(0, faces.size(), 3):
+			both[i * 2] = faces[i]
+			both[i * 2 + 1] = faces[i + 1]
+			both[i * 2 + 2] = faces[i + 2]
+			both[i * 2 + 3] = faces[i + 2]
+			both[i * 2 + 4] = faces[i + 1]
+			both[i * 2 + 5] = faces[i]
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(both)
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		cs.shape = shape
+		body.add_child(cs)
+		n.add_child(body)
