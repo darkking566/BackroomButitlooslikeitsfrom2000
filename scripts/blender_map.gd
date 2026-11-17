@@ -5,6 +5,8 @@ extends Node3D
 
 const MAP_PATH := "res://assets/models/blender_map.glb"
 const LIGHTS_PATH := "res://assets/models/blender_map_lights.json"
+const DIM_KILL_DIST := 7.0     # 怪物周圍這個距離內的燈熄滅
+const DIM_FLICKER_DIST := 15.0 # 這個距離內開始亂閃
 const POOL_SIZE := 32          # 同時亮的燈上限（全場 2274 盞 Source 燈，只讓玩家附近的亮）
 const LIGHT_RADIUS := 40.0     # 只考慮這個距離內的燈
 const ORIGIN := Vector3(135.0, -3.22, 186.0)  # 街道起點 (map 0,0) 對齊空房地板 y=-2；x≥109 避開 Level0
@@ -122,6 +124,7 @@ var _slot_src: Array[int] = []  # 每個槽目前對應的來源索引，-1 = �
 var _slot_goal: Array[float] = []
 var _scan_t := 0.0
 var _amb := 0.4
+var _dimmed := {}              # 來源索引 -> 剩餘熄滅秒數
 
 
 func _load_lights() -> void:
@@ -182,8 +185,26 @@ func _update_lights(delta: float, ppos: Vector3) -> void:
 				_pool[s].omni_range = clampf(sqrt(e[6]) * 0.6, 6.0, 28.0)
 				_slot_goal[s] = _energy_of(ni)
 	var k := clampf(delta * 5.0, 0.0, 1.0)
+	var mon := get_parent().get_node_or_null("Monster") as Node3D
+	for si in _dimmed.keys():
+		_dimmed[si] -= delta
+		if _dimmed[si] <= 0.0:
+			_dimmed.erase(si)
 	for s in POOL_SIZE:
-		_pool[s].light_energy = lerpf(_pool[s].light_energy, _slot_goal[s], k)
+		var si := _slot_src[s]
+		var mult := 1.0
+		if si >= 0 and mon != null:
+			var e: Array = _src[si]
+			var d := Vector3(e[0], e[1], e[2]).distance_to(mon.global_position)
+			if d < DIM_KILL_DIST:
+				_dimmed[si] = randf_range(10.0, 15.0)  # 牠經過的燈延遲 10–15 秒才復電（同 Level0）
+			elif d < DIM_FLICKER_DIST and randf() < 0.02 and not _dimmed.has(si):
+				_dimmed[si] = 0.25  # 牠接近時燈亂閃，預告牠快到了
+		if si >= 0 and _dimmed.has(si):
+			mult = 0.0
+			if _dimmed[si] < 1.5 and randf() < 0.45:
+				mult = 1.0  # 復電前先閃幾下
+		_pool[s].light_energy = lerpf(_pool[s].light_energy, _slot_goal[s] * mult, maxf(k, 0.5) if mult == 0.0 else k)
 
 
 func _energy_of(i: int) -> float:
