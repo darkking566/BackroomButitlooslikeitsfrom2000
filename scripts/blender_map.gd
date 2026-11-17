@@ -3,6 +3,7 @@ extends Node3D
 # 接在校舍翼空房東側通道盡頭（x≥109），執行時才載入、才生成碰撞，避免把幾何寫進 .tscn。
 # 入口：空房東牆 → 通道 x92..126 → 街道廣場 (x≥124, z 164..234)。Blender 原點 = 此節點原點，Blender Z 向上 → Godot Y。
 
+const PixelStyle := preload("res://scripts/pixel_style.gd")
 const MAP_PATH := "res://assets/models/blender_map.glb"
 const INTERACTIVES_PATH := "res://assets/models/blender_map_interactives.json"
 const LIGHTS_PATH := "res://assets/models/blender_map_lights.json"
@@ -62,14 +63,14 @@ func _process(delta: float) -> void:
 		return
 	var t := 1.0 if w >= 1.0 else clampf(w * delta * 6.0, 0.0, 1.0)
 	var env := we.environment
-	env.fog_light_color = env.fog_light_color.lerp(Color(0.07, 0.075, 0.09), t)
-	env.fog_density = lerpf(env.fog_density, 0.04, t)  # 和 Level0 一樣有霧（原本 0.01 太清楚），遠處的燈與牆漸漸隱沒
-	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.57, 0.64), t)
+	env.fog_light_color = env.fog_light_color.lerp(Color(0.14, 0.13, 0.09), t)
+	env.fog_density = lerpf(env.fog_density, 0.07, t)  # 接近起點的 0.085：遠處的燈與牆漸漸隱沒
+	env.ambient_light_color = env.ambient_light_color.lerp(Color(0.55, 0.52, 0.40), t)
 	# 環境光跟「附近有沒有亮著的燈」走：燈下 0.28，離燈 14 m 以上降到 0.05（不開手電筒幾乎看不見）；
 	# 戶外（地面層）保底 0.14 當月光
-	var base := lerpf(0.05, 0.28, _lit)
+	var base := lerpf(0.04, 0.14, _lit)
 	if player.position.y > -10.0 and player.position.y < 12.0:
-		base = maxf(base, 0.14)
+		base = maxf(base, 0.09)
 	_amb = lerpf(_amb, base, clampf(delta * 2.0, 0.0, 1.0))
 	env.ambient_light_energy = lerpf(env.ambient_light_energy, _amb, t)
 
@@ -197,6 +198,7 @@ func _style_materials(n: Node) -> void:
 		d.roughness = 1.0
 		if d.albedo_texture == null:
 			_fill_missing(d, nm)
+		d.albedo_texture = PixelStyle.pixelate(d.albedo_texture)  # 和起點一樣的低解析像素質感
 		if nm.contains("FLOULIGHT") and not nm.contains("OFF"):
 			d.emission_enabled = true
 			d.emission = Color(1.0, 0.95, 0.75)
@@ -309,7 +311,7 @@ func _update_lights(delta: float, ppos: Vector3) -> void:
 
 
 func _energy_of(i: int) -> float:
-	return clampf(0.9 + float(_src[i][6]) / 2000.0, 1.0, 3.0)
+	return clampf(0.6 + float(_src[i][6]) / 3000.0, 0.8, 1.8)  # 和 Level0 的日光燈同一個量級（0.55–1.55）
 
 
 # --- 原圖缺貼圖的材質（Half-Life 2 內建貼圖，沒附在地圖包裡）：依名稱用程式生成的小圖補上 ---

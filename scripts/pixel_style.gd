@@ -20,6 +20,29 @@ static func grain() -> ImageTexture:
 	return _tex
 
 
+static var _pix := {}
+
+
+# 把高解析貼圖縮成 64 px 的像素風（最近鄰），並稍微壓暗、降飽和；同一張只處理一次
+static func pixelate(tex: Texture2D) -> Texture2D:
+	if tex == null:
+		return null
+	var id := tex.get_instance_id()
+	if _pix.has(id):
+		return _pix[id]
+	var img := tex.get_image()
+	if img == null:
+		return tex
+	if img.is_compressed():
+		img.decompress()
+	img.adjust_bcs(0.92, 1.0, 0.7)
+	img.resize(mini(img.get_width(), 64), mini(img.get_height(), 64), Image.INTERPOLATE_NEAREST)
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	_pix[id] = t
+	return t
+
+
 static func apply(m: StandardMaterial3D) -> StandardMaterial3D:
 	if m == null or m.emission_enabled or m.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 		return m  # 發光體與半透明（窗、玻璃）保持原樣

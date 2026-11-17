@@ -3,6 +3,7 @@ extends Node3D
 # 執行時載入並生成碰撞（不把幾何寫進 .tscn）。Blender 原點 = ORIGIN，Blender Z 向上 → Godot Y。
 # 連接方式：舊地圖（BlenderMap）街道廣場南邊長形建築的東端牆開一扇門 → 本腳本生成的通道（x164.6→266）→ 新地圖西側的戲院大廳（牆被挖開）。
 # 新地圖的燈併進舊地圖腳本的燈池（亮度淡入淡出、怪物附近熄滅閃爍、環境光跟隨），不另建燈池。
+const PixelStyle := preload("res://scripts/pixel_style.gd")
 const MAP_PATH := "res://assets/models/blender_movie_map.glb"
 const LIGHTS_PATH := "res://assets/models/blender_movie_lights.json"
 const ORIGIN := Vector3(489.6, -5.8, 295.95)  # 新地圖局部 (-212,4.4,-34) 對到通道終點 (277.6,-1.4,261.95)
@@ -94,6 +95,7 @@ func _style_and_collide(n: Node, old: Node) -> void:
 		d.normal_enabled = false
 		d.roughness = 1.0
 		d.metallic = 0.0
+		d.albedo_texture = PixelStyle.pixelate(d.albedo_texture)
 		if nm.contains("LIGHT_NEON") or nm.contains("LIGHTS_ON"):
 			d.emission_enabled = true
 			d.emission = Color(1.0, 0.95, 0.75)
