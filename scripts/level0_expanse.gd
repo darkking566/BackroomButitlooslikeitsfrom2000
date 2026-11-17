@@ -143,6 +143,7 @@ func _build() -> void:
 	_build_tower()
 	_build_warehouse()
 	_build_basement()
+	_build_props()
 
 
 # --- A: 拱門 → 會議坑 ---
@@ -472,6 +473,151 @@ func _build_basement() -> void:
 		"【地下檔案室】\n每個資料夾的標籤都寫著「Level 0」，裡面全是空白的平面圖。\n\n"
 		+ "「西邊有樓梯往上，牆後面沒有燈。帶著手電筒。」")
 
+
+# --- Props（Poly Pizza CC0 低模，已在 Blender 降飽和、做舊；見 assets/models/props/CREDITS.md）---
+const PROP_DIR := "res://assets/models/props/"
+# Godot 座標下的尺寸 (x, 高, z)，用來產生碰撞箱
+const PROP_SIZE := {
+	"armchair": Vector3(1.7, 1.02, 1.6), "barrel": Vector3(0.55, 0.9, 0.55),
+	"box_closed": Vector3(0.42, 0.55, 0.42), "bucket": Vector3(0.27, 0.38, 0.29),
+	"cardboard_boxes": Vector3(1.0, 0.97, 0.94), "coffee_machine": Vector3(0.32, 0.3, 0.4),
+	"computer_screen": Vector3(0.5, 0.37, 0.13), "fridge": Vector3(0.84, 1.8, 0.83),
+	"ladder": Vector3(0.37, 2.6, 0.1), "pallet": Vector3(1.2, 0.14, 1.03),
+	"pallet_broken": Vector3(1.2, 0.18, 1.04), "plant": Vector3(1.1, 1.03, 0.99),
+	"shelf_small": Vector3(1.4, 0.52, 0.74), "trashcan": Vector3(0.42, 0.6, 0.26),
+	# 既有辦公室模型
+	"desk": Vector3(1.45, 1.16, 0.78), "chair": Vector3(0.55, 0.95, 0.55), "cabinet": Vector3(0.48, 1.32, 0.62),
+}
+const OLD_MODELS := {
+	"desk": "res://assets/models/retro_office_desk.glb",
+	"chair": "res://assets/models/office_chair.glb",
+	"cabinet": "res://assets/models/filing_cabinet.glb",
+}
+const NO_COLLIDE := ["pallet", "pallet_broken", "coffee_machine", "computer_screen", "bucket"]
+
+var _prop_scenes := {}
+
+
+func _prop(kind: String, pos: Vector3, rot_y: float = 0.0) -> void:
+	if not _prop_scenes.has(kind):
+		_prop_scenes[kind] = load(OLD_MODELS.get(kind, PROP_DIR + kind + ".glb"))
+	var scene: PackedScene = _prop_scenes[kind]
+	var body := StaticBody3D.new()
+	body.position = pos
+	body.rotation_degrees.y = rot_y
+	_props.add_child(body)
+	if scene:
+		body.add_child(scene.instantiate())
+	if kind in NO_COLLIDE:
+		return
+	var sz: Vector3 = PROP_SIZE[kind]
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = sz
+	cs.shape = bs
+	cs.position.y = sz.y * 0.5
+	body.add_child(cs)
+
+
+func _build_props() -> void:
+	# A 走廊
+	_prop("trashcan", Vector3(-51.4, 0, 44.5))
+	_prop("bucket", Vector3(-45.2, 0, 47.5))
+	# B 會議坑：坑底圍桌的椅子、桌上咖啡機；坑外茶水角與檔案櫃
+	for cx in [-66.0, -64.0, -62.0]:
+		_prop("chair", Vector3(cx, -1.6, 44.4), 0.0)
+		_prop("chair", Vector3(cx, -1.6, 47.6), 180.0)
+	_prop("coffee_machine", Vector3(-62.4, -0.85, 46.1), 200.0)
+	_prop("fridge", Vector3(-53.0, 0, 35.0), 180.0)
+	_prop("trashcan", Vector3(-54.2, 0, 34.5))
+	for cx in [-74.6, -74.0, -73.4, -72.8]:
+		_prop("cabinet", Vector3(cx, 0, 34.5), 180.0)
+	_prop("plant", Vector3(-75.2, 0, 57.2))
+	_prop("cardboard_boxes", Vector3(-53.0, 0, 57.0), 15.0)
+	_prop("box_closed", Vector3(-53.8, 0, 56.0), 40.0)
+	# C 中庭：一組沒人坐的沙發、迴廊上的雜物
+	_prop("armchair", Vector3(-101.0, 0, 50.0), 90.0)
+	_prop("armchair", Vector3(-95.0, 0, 50.0), -90.0)
+	_prop("plant", Vector3(-98.0, 0, 47.6))
+	_prop("trashcan", Vector3(-98.0, 0, 52.4))
+	_prop("ladder", Vector3(-109.75, 0, 60.0), 90.0)
+	_prop("cardboard_boxes", Vector3(-108.6, UP_Y, 40.5), 10.0)
+	_prop("box_closed", Vector3(-108.4, UP_Y, 42.0), 30.0)
+	for cx in [-100.0, -99.4, -98.8]:
+		_prop("cabinet", Vector3(cx, UP_Y, 34.5), 180.0)
+	_prop("plant", Vector3(-77.0, UP_Y, 35.0))
+	# D1 爬行層（雜物） / D2 上層迷宮（辦公家具），用固定種子撒在格子裡
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2024
+	var skip := [HOLE, Vector2i(CRAWL_DOOR_COL, 0), Vector2i(UPPER_DOOR_COL, 0), Vector2i(D_N - 1, EAST_DOOR_ROW)]
+	var crawl_kinds := ["bucket", "barrel", "cardboard_boxes", "pallet_broken", "box_closed", "pallet"]
+	var office_kinds := ["desk", "cabinet", "trashcan", "plant", "chair", "cardboard_boxes"]
+	for layer in 2:
+		var used := skip.duplicate()
+		for i in 16:
+			var c := Vector2i(rng.randi_range(0, D_N - 1), rng.randi_range(0, D_N - 1))
+			if c in used:
+				continue
+			used.append(c)
+			var dir: Vector3 = [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)][rng.randi_range(0, 3)]
+			var kinds: Array = crawl_kinds if layer == 0 else office_kinds
+			var y := 0.0 if layer == 0 else UP_Y
+			var kind: String = kinds[rng.randi_range(0, kinds.size() - 1)]
+			var sz: Vector3 = PROP_SIZE[kind]
+			var off := maxf(0.0, 1.5 - Vector2(sz.x, sz.z).length() * 0.5) # 任意旋轉都不穿牆
+			_prop(kind, _cell_center(c, y) + dir * off, rng.randf_range(0.0, 360.0))
+	# E 長廳：平台上的休息區、柱邊矮櫃
+	_prop("armchair", Vector3(-55.0, 1.5, 96.0), 160.0)
+	_prop("armchair", Vector3(-50.5, 1.5, 96.5), -150.0)
+	_prop("plant", Vector3(-47.0, 1.5, 101.0))
+	_prop("desk", Vector3(-53.0, 1.5, 100.8), 180.0)
+	_prop("shelf_small", Vector3(-70.0, 0, 65.6), 0.0)
+	_prop("shelf_small", Vector3(-64.0, 0, 90.3), 90.0)
+	_prop("cardboard_boxes", Vector3(-45.0, 0, 70.0), 5.0)
+	_prop("box_closed", Vector3(-45.1, 0, 71.2), 25.0)
+	_prop("bucket", Vector3(-58.0, 0, 104.0 - 0.4))
+
+	# F 梯田辦公室：每個隔間一張桌子 + 椅子
+	var edges: Array[float] = [26.0, 33.5, 41.0, 48.5]
+	var stair_z: Array[float] = [45.25, 38.0, 52.0]
+	for i in 4:
+		for pz in [38.0, 46.0, 54.0]:
+			if i > 0 and absf(pz - stair_z[i - 1]) < 3.0:
+				continue
+			var x1 := edges[i]
+			var y := i * 0.8
+			_prop("desk", Vector3(x1 + 3.9, y, pz + 0.5), 180.0)
+			_prop("chair", Vector3(x1 + 3.9, y, pz + 1.5), 180.0 + rng.randf_range(-30.0, 30.0))
+	_prop("plant", Vector3(27.0, 0, 35.0))
+	_prop("plant", Vector3(55.0, 2.4, 57.0))
+	_prop("trashcan", Vector3(27.0, 0, 57.4))
+	_prop("fridge", Vector3(55.2, 2.4, 35.0), -90.0)
+	_prop("coffee_machine", Vector3(55.3, 2.4 + 1.8, 35.0), -90.0)
+	# G 塔底
+	_prop("barrel", Vector3(68.8, 2.4, 47.0))
+	_prop("bucket", Vector3(67.9, 2.4, 47.3))
+	_prop("ladder", Vector3(63.0, 2.4, 47.8))
+	_prop("pallet_broken", Vector3(62.5, 2.4, 40.5), 20.0)
+	# H 倉庫：棧板 + 紙箱、油桶堆、貨架頂上的箱子（從貓道看得到）
+	for p in [Vector3(60.0, 0, 57.0), Vector3(66.0, 0, 57.2), Vector3(74.0, 0, 73.0), Vector3(62.0, 0, 79.5)]:
+		_prop("pallet", p, rng.randf_range(-10.0, 10.0))
+		_prop("cardboard_boxes", p + Vector3(0, 0.14, 0), rng.randf_range(0.0, 90.0))
+	for p in [Vector3(84.6, 0, 50.0), Vector3(85.2, 0, 50.7), Vector3(84.4, 0, 51.3), Vector3(78.0, 0, 81.2)]:
+		_prop("barrel", p)
+	_prop("pallet_broken", Vector3(80.0, 0, 66.5), 35.0)
+	for rz in [54.0, 60.0, 70.0, 76.0]:
+		for i in 3:
+			var kind := "cardboard_boxes" if rng.randf() < 0.5 else "box_closed"
+			_prop(kind, Vector3(rng.randf_range(64.0, 76.0), 6.0, rz), rng.randf_range(0.0, 90.0))
+	_prop("ladder", Vector3(77.2, 0, 60.0), 90.0)
+	# I 地下檔案室
+	for cx in [33.0, 33.6, 34.2, 41.0, 41.6]:
+		_prop("cabinet", Vector3(cx, -2.0, 60.5), 180.0)
+	_prop("bucket", Vector3(36.5, -2.0, 74.2))
+	_prop("box_closed", Vector3(44.6, -2.0, 61.0), 15.0)
+	_prop("cardboard_boxes", Vector3(44.5, -2.0, 79.3), 0.0)
+	for rz in [63.0, 66.5, 77.0]:
+		_prop("box_closed", Vector3(rng.randf_range(33.0, 43.0), 0.6, rz), rng.randf_range(0.0, 90.0))
 
 # --- 迷宮 ---
 func _carve(cols: int, rows: int, seed_v: int, loops: float) -> Dictionary:
