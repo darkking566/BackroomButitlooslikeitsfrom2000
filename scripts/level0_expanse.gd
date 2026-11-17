@@ -1,4 +1,5 @@
 @tool
+class_name Level0Expanse
 extends Node3D
 # Level 0 西翼擴展區（x: -110 .. -44, z: 34 .. 104），從拱門變體西牆 z[44..48] 進入。
 #   A 連接走廊      x[-52..-44]   z[44..48]   天花 3.0
@@ -781,6 +782,31 @@ func _stairs(start: Vector3, dir: Vector3, width: float, steps: int, rise: float
 		var ht := top - start.y if solid else rise
 		var sz := Vector3(depth, ht, width) if absf(dir.x) > 0.5 else Vector3(width, ht, depth)
 		_box(Vector3(along.x, top - ht * 0.5, along.z), sz, mat)
+	_stair_ramp(_body, start, dir, width, steps, rise, depth)
+
+
+# 玩家只有 move_and_slide、沒有爬階邏輯：0.2m 階緣對半徑 0.35 的膠囊來說是 ~65° 的牆。
+# 在樓梯下放一片隱形斜坡，上表面剛好通過每一階前緣（約 26°），可走也不會陷進踏面。
+static func _stair_ramp(parent: Node3D, start: Vector3, dir: Vector3, width: float, steps: int, rise: float, depth: float) -> void:
+	var run := steps * depth
+	var h := steps * rise
+	var ang := atan2(h, run)
+	var t := 0.1
+	# 斜面從第一階前方 depth 處的地面，拉到最上一階的前緣
+	var c := start + dir * ((steps - 2) * depth * 0.5) + dir * (sin(ang) * t * 0.5)
+	c.y = start.y + h * 0.5 - cos(ang) * t * 0.5
+	var ln := sqrt(run * run + h * h)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	cs.position = c
+	if absf(dir.x) > 0.5:
+		bs.size = Vector3(ln, t, width)
+		cs.rotation.z = ang * signf(dir.x)
+	else:
+		bs.size = Vector3(width, t, ln)
+		cs.rotation.x = -ang * signf(dir.z)
+	cs.shape = bs
+	parent.add_child(cs)
 
 
 # 欄杆：沿 x（z=fixed）或沿 z（x=fixed），y=樓面高度；rise>0 時為樓梯斜扶手

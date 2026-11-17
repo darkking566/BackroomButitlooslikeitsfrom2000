@@ -283,6 +283,8 @@ func _build_stair_threshold(body: StaticBody3D, lights: Node3D, props: Node3D) -
 		var sy := (i + 0.5) * step_rise
 		var sz := stair_start_z - (i + 0.5) * step_depth
 		_add_box(body, Vector3(2.6, step_rise, step_depth), Vector3(-2.8, sy, sz), mat_wood, true)
+	# 隱形斜坡讓玩家能往上走（原因見 level0_expanse.gd 的 _stair_ramp）
+	Level0Expanse._stair_ramp(body, Vector3(-2.8, 0.0, stair_start_z), Vector3(0, 0, -1), 2.6, steps, step_rise, step_depth)
 
 	# Wooden handrail on left side of stairs (x = -4.0)
 	_add_box(body, Vector3(0.12, 1.0, 0.12), Vector3(-4.0, 0.5, stair_start_z - 0.15), mat_wood, true)
