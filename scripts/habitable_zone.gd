@@ -6,7 +6,7 @@ extends Node3D
 
 const MAT_HALL_WALL := preload("res://materials/mat_hall_wall.tres")
 const MAT_HALL_FLOOR := preload("res://materials/mat_hall_floor.tres")
-const MAT_WET_FLOOR := preload("res://materials/mat_wet_floor.tres")
+const MAT_PUDDLE_WATER := preload("res://materials/mat_puddle_water.tres")
 const MAT_DARK_BRICK := preload("res://materials/mat_dark_brick.tres")
 const MAT_VENT_GRILL := preload("res://materials/mat_vent_grill.tres")
 const MAT_FLUORESCENT := preload("res://materials/mat_fluorescent.tres")
@@ -147,10 +147,17 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 			_add_box(geo, Vector3(0.9, CEIL_H, 0.9), Vector3(px, CEIL_H * 0.5, pz), MAT_HALL_WALL, true)
 			_add_box(geo, Vector3(0.96, 0.22, 0.96), Vector3(px, 0.75, pz), _mat_hazard, false)
 
-	# 積水區（純視覺反光薄片，抬高 1.5cm 並細分網格避免與地板產生 Z-fighting 閃爍）
-	_add_box(geo, Vector3(11.0, 0.01, 7.5), Vector3(-11.0, 0.015, -6.5), MAT_WET_FLOOR, false)
-	_add_box(geo, Vector3(9.5, 0.01, 8.0), Vector3(11.5, 0.015, 7.0), MAT_WET_FLOOR, false)
-	_add_box(geo, Vector3(6.5, 0.01, 5.5), Vector3(0.5, 0.015, 12.5), MAT_WET_FLOOR, false)
+	# 反射探針讓積水能倒映柱子與日光燈
+	var probe := ReflectionProbe.new()
+	probe.position = Vector3(0.0, CEIL_H * 0.5, 0.0)
+	probe.size = Vector3(48.0, CEIL_H + 0.5, 40.0)
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	add_child(probe)
+
+	# 積水區（半透明不規則水窪 + 動態波紋反光，可隱約透出底下地磚）
+	_add_puddle(geo, Vector3(-11.0, 0.015, -6.5), Vector2(11.0, 8.0))
+	_add_puddle(geo, Vector3(11.5, 0.015, 7.0), Vector2(10.0, 8.5))
+	_add_puddle(geo, Vector3(0.5, 0.015, 12.5), Vector2(7.0, 6.0))
 
 	# 頭頂管線
 	_add_pipe(geo, Vector3(-22.0, 3.15, -10.0), Vector3(22.0, 3.15, -10.0), 0.12)
@@ -251,7 +258,8 @@ func _build_north_corridor(geo: StaticBody3D, lights: Node3D, props: Node3D) -> 
 
 func _build_south_ramp(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	# 南側積水車道區 (x: -8..8, z: 20..30)
-	_add_box(geo, Vector3(16.0, 0.2, 10.0), Vector3(0.0, -0.1, 25.0), MAT_WET_FLOOR, true)
+	_add_box(geo, Vector3(16.0, 0.2, 10.0), Vector3(0.0, -0.1, 25.0), MAT_HALL_FLOOR, true)
+	_add_puddle(geo, Vector3(0.0, 0.015, 25.0), Vector2(14.5, 9.0))
 	_add_box(geo, Vector3(16.0, 0.2, 10.0), Vector3(0.0, CEIL_H + 0.1, 25.0), _mat_concrete_dark, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 10.0), Vector3(-8.0, CEIL_H * 0.5, 25.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 10.0), Vector3(8.0, CEIL_H * 0.5, 25.0), MAT_HALL_WALL, true)
@@ -292,6 +300,18 @@ func _add_box(parent: Node3D, sz: Vector3, pos: Vector3, mat: Material, with_col
 		col.shape = shape
 		col.position = pos
 		parent.add_child(col)
+
+
+func _add_puddle(parent: Node3D, pos: Vector3, sz: Vector2) -> void:
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = sz
+	pm.subdivide_width = clampi(int(sz.x / 1.5) - 1, 0, 16)
+	pm.subdivide_depth = clampi(int(sz.y / 1.5) - 1, 0, 16)
+	mi.mesh = pm
+	mi.position = pos
+	mi.material_override = MAT_PUDDLE_WATER
+	parent.add_child(mi)
 
 
 func _add_pipe(parent: Node3D, from_pos: Vector3, to_pos: Vector3, radius: float) -> void:

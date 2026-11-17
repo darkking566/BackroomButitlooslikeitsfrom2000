@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/puddle_water.gdshader" id="1_puddle"]
+
+[resource]
+render_priority = 1
+shader = ExtResource("1_puddle")
+shader_parameter/water_tint = Color(0.14, 0.24, 0.31, 1)
+shader_parameter/water_opacity = 0.58
+shader_parameter/ripple_speed = 1.25
+shader_parameter/ripple_scale = 14.0
+shader_parameter/ripple_strength = 0.22
+shader_parameter/pixel_density = 56.0
