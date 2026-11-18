@@ -181,6 +181,9 @@ func _build_habitable_zone() -> void:
 	# 5. B2 最東側：暖橘燈發電機房＋深層貨梯出口 (x: 76..94)
 	_build_generator_room(geo, lights, props)
 
+	# 6. 西側：員工休息室／小型監控室 (x: -36..-24, z: -18..-4)
+	_build_west_breakroom(geo, lights, props)
+
 
 func _init_local_materials() -> void:
 	_mat_concrete_dark = StandardMaterial3D.new()
@@ -210,8 +213,10 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	_add_box(geo, Vector3(48.0, 0.2, 40.0), Vector3(0.0, -0.1, 0.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(48.0, 0.2, 40.0), Vector3(0.0, CEIL_H + 0.1, 0.0), _mat_concrete_dark, true)
 
-	# 四周外牆（北牆 z=-20 留 6m；南牆 z=20 留 8m；東牆 x=24 留 6m 往 B2 斜坡）
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 40.0), Vector3(-24.0, CEIL_H * 0.5, 0.0), MAT_HALL_WALL, true)
+	# 四周外牆（西牆 x=-24 於 z:-12.6..-9.4 留 3.2m 往員工休息室；東牆 x=24 留 6m 往 B2 斜坡）
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 7.4), Vector3(-24.0, CEIL_H * 0.5, -16.3), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 29.4), Vector3(-24.0, CEIL_H * 0.5, 5.3), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, 0.9, 3.2), Vector3(-24.0, CEIL_H - 0.45, -11.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 17.0), Vector3(24.0, CEIL_H * 0.5, -11.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 17.0), Vector3(24.0, CEIL_H * 0.5, 11.5), MAT_HALL_WALL, true)
 
@@ -272,10 +277,12 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 		var energy := 1.45 if idx == 0 else 1.1
 		_add_omni(lights, lp - Vector3(0.0, 0.25, 0.0), Color(0.84, 0.90, 0.98), energy, 13.5, cast_shadow, flicker)
 
-	# 入口附近的線索桌與模型
+	# 入口附近的線索桌與 M.E.G. 檔案庫終端機
 	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "GarageDesk", Vector3(-3.2, 0.0, 1.5), 90.0, Vector3(1.5, 0.78, 0.8))
+	_spawn_model(props, PROP_DIR + "computer_screen.glb", "GarageScreen", Vector3(-3.2, 0.78, 1.85), 90.0, Vector3(0.45, 0.45, 0.4))
+	_add_wiki_terminal(props, "GarageWikiTerminal", Vector3(-3.2, 1.0, 1.85), Vector3(0.65, 0.65, 0.65), "瀏覽 M.E.G.「宜居地帶」檔案庫")
 	_spawn_model(props, MODEL_DIR + "office_chair.glb", "GarageChair", Vector3(-2.3, 0.0, 1.4), -75.0, Vector3(0.65, 0.95, 0.65))
-	_add_note_prop(props, "HabitableIntroNote", Vector3(-3.2, 0.80, 1.5),
+	_add_note_prop(props, "HabitableIntroNote", Vector3(-3.2, 0.80, 1.1),
 		"閱讀桌上的「宜居地帶」生存簡報", "M.E.G. 宜居地帶簡報",
 		"【層級名稱：宜居地帶】\n\n"
 		+ "如果你剛從「閾界」的黃色迷宮切出，歡迎來到相對安全卻依然危機四伏的「宜居地帶」。\n"
@@ -548,6 +555,50 @@ func _build_generator_room(geo: StaticBody3D, lights: Node3D, props: Node3D) -> 
 		+ "貨梯面板的指示燈已經亮起，代表這裡就是「宜居地帶」通往下一層的正式出口。\n"
 		+ "（目前「管道區」尚未施工完成，預計於下一次擴建後開放搭乘！）"
 	)
+
+
+func _build_west_breakroom(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# 西側員工休息室／監控室 (x: -36..-24, z: -18..-4)
+	_add_box(geo, Vector3(12.0, 0.2, 14.0), Vector3(-30.0, -0.1, -11.0), MAT_HALL_FLOOR, true)
+	_add_box(geo, Vector3(12.0, 0.2, 14.0), Vector3(-30.0, CEIL_H + 0.1, -11.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 14.0), Vector3(-36.0, CEIL_H * 0.5, -11.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(12.0, CEIL_H, WALL_T), Vector3(-30.0, CEIL_H * 0.5, -18.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(12.0, CEIL_H, WALL_T), Vector3(-30.0, CEIL_H * 0.5, -4.0), MAT_HALL_WALL, true)
+
+	# 偏綠的舊式日光燈管與微弱閃爍
+	_add_box(geo, Vector3(1.5, 0.06, 0.28), Vector3(-30.0, CEIL_H - 0.05, -11.0), MAT_FLUORESCENT, false)
+	_add_omni(lights, Vector3(-30.0, CEIL_H - 0.35, -11.0), Color(0.76, 0.94, 0.80), 1.15, 11.5, false, false)
+
+	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "BreakDesk", Vector3(-34.6, 0.0, -14.5), 90.0, Vector3(1.5, 0.78, 0.8))
+	_spawn_model(props, PROP_DIR + "computer_screen.glb", "BreakMonitor", Vector3(-34.6, 0.78, -14.5), 90.0, Vector3(0.5, 0.45, 0.4))
+	_add_wiki_terminal(props, "BreakWikiTerminal", Vector3(-34.6, 1.0, -14.5), Vector3(0.65, 0.65, 0.65), "使用監控終端查閱 M.E.G. 檔案庫")
+	_spawn_model(props, PROP_DIR + "coffee_machine.glb", "BreakCoffee", Vector3(-34.6, 0.78, -14.0), 90.0, Vector3(0.35, 0.4, 0.35))
+	_spawn_model(props, PROP_DIR + "fridge.glb", "BreakFridge", Vector3(-34.8, 0.0, -6.5), 90.0, Vector3(0.8, 1.7, 0.8))
+	_spawn_model(props, PROP_DIR + "armchair.glb", "BreakCouch", Vector3(-30.0, 0.0, -5.8), 180.0, Vector3(1.7, 1.0, 1.6))
+	_spawn_model(props, PROP_DIR + "plant.glb", "BreakPlant", Vector3(-25.4, 0.0, -5.2), 0.0, Vector3(0.5, 0.9, 0.5))
+	_spawn_model(props, MODEL_DIR + "filing_cabinet.glb", "BreakCabinet", Vector3(-29.5, 0.0, -17.1), 0.0, Vector3(0.6, 1.4, 0.7))
+	_add_note_prop(props, "GuardLogNote", Vector3(-34.5, 0.80, -15.0),
+		"閱讀值班桌上的警衛交接簿", "地下停車場值班紀錄",
+		"【交接事項 — 夜班】\n\n"
+		+ "1. 西牆外面的主配電箱最近常跳脫，記得順手推上去。\n"
+		+ "2. 東邊車道斜坡下去是 B2 貨架區，沒有必要不要在跳電時下去。\n"
+		+ "3. 咖啡機已經壞了三週，但每到凌晨三點還是會自己滴出黑水——別喝。"
+	)
+
+
+func _add_wiki_terminal(parent: Node3D, node_name: String, pos: Vector3, col_size: Vector3, prompt: String) -> void:
+	var body := StaticBody3D.new()
+	body.name = node_name
+	body.position = pos
+	body.set_script(INTERACT_SCRIPT)
+	body.set("prompt_text", prompt)
+	body.set("interaction_type", "wiki_archive")
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = col_size
+	col.shape = shape
+	body.add_child(col)
+	parent.add_child(body)
 
 
 func _add_warehouse_rack(geo: StaticBody3D, props: Node3D, base_pos: Vector3) -> void:

@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const Level0WikiData := preload("res://scripts/level0_wiki_data.gd")
+const HabitableWikiData := preload("res://scripts/habitable_wiki_data.gd")
 
 signal window_closed
 signal restart_requested
@@ -104,20 +105,21 @@ func show_wiki_archive() -> void:
 	_note_group.visible = false
 	_exit_dialog.visible = false
 
-	var win_title := "M.E.G. Archive - 閾界 (Wiki)"
+	var entries: Array[Dictionary] = HabitableWikiData.ENTRIES if _is_habitable_zone else Level0WikiData.ENTRIES
+	var win_title := "M.E.G. Archive - 宜居地帶 (Wiki)" if _is_habitable_zone else "M.E.G. Archive - 閾界 (Wiki)"
 	_left_title_label.text = " " + win_title
 	_clear_file_list()
 
-	for i in Level0WikiData.ENTRIES.size():
-		var entry: Dictionary = Level0WikiData.ENTRIES[i]
+	for i in entries.size():
+		var entry: Dictionary = entries[i]
 		var label_txt := " [檔]  %-20s %s" % [entry["file"], entry["size"]]
 		var captured_entry := entry
 		_add_file_item(label_txt, func() -> void:
 			_set_document(captured_entry["title"], captured_entry["body"], captured_entry["image"])
 		, i == 0)
 
-	if not Level0WikiData.ENTRIES.is_empty():
-		var first: Dictionary = Level0WikiData.ENTRIES[0]
+	if not entries.is_empty():
+		var first: Dictionary = entries[0]
 		_set_document(first["title"], first["body"], first["image"])
 	_task_label.text = " " + win_title
 
@@ -612,6 +614,7 @@ func _build_overlay() -> void:
 			{"name": "8. B1→B2 車道斜坡入口", "pos": Vector3(23.0, 0.05, 0.0), "yaw": -PI * 0.5},
 			{"name": "9. B2 挑高大型貨架倉庫", "pos": Vector3(44.0, -3.95, 0.0), "yaw": -PI * 0.5},
 			{"name": "10. B2 發電機房（深層貨梯）", "pos": Vector3(80.0, -3.95, 0.0), "yaw": -PI * 0.5},
+			{"name": "11. 西側員工休息室 / 監控室", "pos": Vector3(-27.0, 0.05, -11.0), "yaw": PI * 0.5},
 		]
 	else:
 		waypoints = [
@@ -918,16 +921,16 @@ class MapCanvas extends Control:
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		if is_habitable_zone:
-			# 宜居地帶 bounds: x [-28 .. +98], z [-38 .. +42]
-			var hnx := (wx + 28.0) / 126.0
+			# 宜居地帶 bounds: x [-38 .. +98], z [-38 .. +42]
+			var hnx := (wx + 38.0) / 136.0
 			var hnz := (wz + 38.0) / 80.0
 			var hpad := 16.0
 			var hw := size.x - hpad * 2.0
 			var hh := size.y - hpad * 2.0
-			var hscale := minf(hw / (126.0 / 80.0), hh)
-			var hox := (size.x - hscale * (126.0 / 80.0)) * 0.5
+			var hscale := minf(hw / (136.0 / 80.0), hh)
+			var hox := (size.x - hscale * (136.0 / 80.0)) * 0.5
 			var hoy := (size.y - hscale) * 0.5
-			return Vector2(hox + hnx * hscale * (126.0 / 80.0), hoy + hnz * hscale)
+			return Vector2(hox + hnx * hscale * (136.0 / 80.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -954,6 +957,7 @@ class MapCanvas extends Control:
 	func _draw() -> void:
 		if is_habitable_zone:
 			_draw_zone(-24.0, -20.0, 24.0, 20.0, Color(0.28, 0.31, 0.35, 0.92), "主停車場大廳")
+			_draw_zone(-36.0, -18.0, -24.0, -4.0, Color(0.26, 0.35, 0.30, 0.92), "員工休息室")
 			_draw_zone(-10.0, -34.0, 10.0, -20.0, Color(0.22, 0.26, 0.30, 0.92), "北側管線走廊")
 			_draw_zone(-8.0, 20.0, 8.0, 30.0, Color(0.20, 0.25, 0.32, 0.92), "南側積水車道")
 			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.45, 0.38, 0.22, 0.95), "安全避難所")
