@@ -16,6 +16,7 @@ const HabitableStructures := preload("res://scripts/habitable_structures.gd")
 
 const PROP_DIR := "res://assets/models/props/"
 const MODEL_DIR := "res://assets/models/"
+const AQUILA_PS2_WING_PATH := "res://assets/models/aquila_ps2_wing.glb"
 
 const CEIL_H := 3.6
 const WALL_T := 0.4
@@ -270,11 +271,14 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	var pillar_zs := [-12.0, -4.0, 4.0, 12.0]
 	for px in pillar_xs:
 		for pz in pillar_zs:
-			# 避開中心出生點附近 (0, 4) 與 (0, -4) 讓視線開闊一點
-			if absf(px) < 1.0 and absf(pz) < 5.0:
+			# 避開中心出生點附近 (0, 4)、(0, -4) 與 Blender PS2 天鷹展示區 (0, -12)
+			if absf(px) < 1.0 and (absf(pz) < 5.0 or is_equal_approx(pz, -12.0)):
 				continue
 			_add_box(geo, Vector3(0.9, CEIL_H, 0.9), Vector3(px, CEIL_H * 0.5, pz), MAT_HALL_WALL, true)
 			_add_box(geo, Vector3(0.96, 0.22, 0.96), Vector3(px, 0.75, pz), _mat_hazard, false)
+
+	# 置入由 Blender 匯出的低面數 PS2 天鷹段展示區（F 柱子、水泥斜坡、浪板圍籬、灑水管線與輪胎痕積水）
+	_build_aquila_ps2_wing(geo, lights)
 
 	# 反射探針讓積水能倒映柱子與日光燈
 	var probe := ReflectionProbe.new()
@@ -346,7 +350,7 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	_build_parking_lines(geo)
 	_spawn_model(props, PROP_DIR + "dumpster.glb", "Dumpster_1", Vector3(22.2, 0.0, -6.5), -90.0, Vector3(1.0, 1.58, 1.9))
 	_spawn_model(props, PROP_DIR + "dumpster.glb", "Dumpster_2", Vector3(22.2, 0.0, 14.0), -90.0, Vector3(1.0, 1.58, 1.9))
-	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_1", Vector3(-4.5, 0.0, -5.2), 0.0, Vector3(0.55, 0.72, 0.55))
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_1", Vector3(-3.8, 0.0, -4.8), 0.0, Vector3(0.55, 0.72, 0.55))
 	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_2", Vector3(4.2, 0.0, 18.8), 15.0, Vector3(0.55, 0.72, 0.55))
 	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "Cone_3", Vector3(-4.2, 0.0, 18.8), -20.0, Vector3(0.55, 0.72, 0.55))
 	_spawn_model(props, MODEL_DIR + "breaker_box.glb", "MainBreakerBox", Vector3(-23.6, 1.35, -3.5), 90.0, Vector3(0.35, 0.7, 0.5))
@@ -703,8 +707,8 @@ func _add_box(parent: Node3D, sz: Vector3, pos: Vector3, mat: Material, with_col
 
 
 func _build_parking_lines(geo: StaticBody3D) -> void:
-	# 中央雙黃虛線（標示南北主車道）
-	for lz in [-16.0, -12.0, -8.0, -4.0, 0.0, 4.0, 8.0, 12.0, 16.0]:
+	# 中央雙黃虛線（保留南側車道；北側中央已由 Blender PS2 輪胎痕與積水地坪取代）
+	for lz in [4.0, 8.0, 12.0, 16.0]:
 		_add_box(geo, Vector3(0.12, 0.008, 2.0), Vector3(-0.18, 0.006, lz), _mat_hazard, false)
 		_add_box(geo, Vector3(0.12, 0.008, 2.0), Vector3(0.18, 0.006, lz), _mat_hazard, false)
 
@@ -777,6 +781,91 @@ func _spawn_model(parent: Node3D, path: String, node_name: String, pos: Vector3,
 	col.position = Vector3(0.0, col_size.y * 0.5, 0.0)
 	body.add_child(col)
 	parent.add_child(body)
+
+
+func _build_aquila_ps2_wing(geo: StaticBody3D, lights: Node3D) -> void:
+	if not ResourceLoader.exists(AQUILA_PS2_WING_PATH):
+		return
+	var packed := load(AQUILA_PS2_WING_PATH) as PackedScene
+	if not packed:
+		return
+	var wing := packed.instantiate()
+	wing.name = "AquilaPS2Wing"
+	add_child(wing)
+	_apply_ps2_nearest_materials(wing)
+
+	# 3 根 Blender 主柱碰撞體 (Godot Z = -Blender Y)
+	for pz in [-3.0, -9.5, -16.0]:
+		var p_col := CollisionShape3D.new()
+		var p_shape := BoxShape3D.new()
+		p_shape.size = Vector3(1.35, 3.3, 1.35)
+		p_col.shape = p_shape
+		p_col.position = Vector3(-2.35, 1.65, pz)
+		geo.add_child(p_col)
+
+	# 右側浪板圍籬碰撞體 (Z: -16.5 .. +1.5)
+	var wall_col := CollisionShape3D.new()
+	var wall_shape := BoxShape3D.new()
+	wall_shape.size = Vector3(0.30, 3.6, 18.0)
+	wall_col.shape = wall_shape
+	wall_col.position = Vector3(4.22, 1.8, -7.5)
+	geo.add_child(wall_col)
+
+	# 左側水泥斜坡：可走上去的傾斜板面 + 護欄邊 + 支撐柱
+	var ramp_col := CollisionShape3D.new()
+	var ramp_shape := BoxShape3D.new()
+	ramp_shape.size = Vector3(2.4, 0.42, 18.14)
+	ramp_col.shape = ramp_shape
+	ramp_col.position = Vector3(-5.6, 1.005, -7.5)
+	ramp_col.rotation.x = atan2(2.27, 18.0)
+	geo.add_child(ramp_col)
+
+	var curb_col := CollisionShape3D.new()
+	var curb_shape := BoxShape3D.new()
+	curb_shape.size = Vector3(0.20, 0.52, 18.14)
+	curb_col.shape = curb_shape
+	curb_col.position = Vector3(-4.49, 1.475, -7.5)
+	curb_col.rotation.x = atan2(2.27, 18.0)
+	geo.add_child(curb_col)
+
+	var sup_col := CollisionShape3D.new()
+	var sup_shape := BoxShape3D.new()
+	sup_shape.size = Vector3(0.85, 1.6, 0.85)
+	sup_col.shape = sup_shape
+	sup_col.position = Vector3(-5.6, 0.8, -12.0)
+	geo.add_child(sup_col)
+
+	# 沿著柱面燈條與右側圍籬燈條補上柔和冷白光（不開即時陰影以維持 PS2 效能）
+	for lp in [
+		Vector3(-0.9, 2.2, 0.2),
+		Vector3(-1.35, 2.05, -2.9),
+		Vector3(-1.35, 2.05, -9.4),
+		Vector3(-1.35, 2.05, -15.9),
+		Vector3(3.75, 2.05, -0.5),
+		Vector3(3.75, 2.05, -7.5),
+	]:
+		_add_omni(lights, lp, Color(0.90, 0.95, 1.0), 1.15, 10.5, false, false)
+
+	# 加上兩塊低視角水波反光貼片，讓手電筒與柱燈照到積水時有流動倒影
+	_add_puddle(geo, Vector3(-1.5, 0.014, 0.5), Vector2(4.2, 4.0))
+	_add_puddle(geo, Vector3(1.8, 0.014, -7.5), Vector2(3.6, 5.5))
+
+
+func _apply_ps2_nearest_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		if mi.mesh:
+			for si in mi.mesh.get_surface_count():
+				var mat := mi.get_active_material(si)
+				if mat is StandardMaterial3D:
+					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+					sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+					if mat.resource_name.contains("Floor"):
+						sm.metallic = 0.28
+						sm.metallic_specular = 0.88
+					mi.set_surface_override_material(si, sm)
+	for child in node.get_children():
+		_apply_ps2_nearest_materials(child)
 
 
 func _add_note_prop(parent: Node3D, node_name: String, pos: Vector3, prompt: String, title: String, body_txt: String) -> void:
