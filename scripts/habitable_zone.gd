@@ -184,6 +184,12 @@ func _build_habitable_zone() -> void:
 	# 6. 西側：員工休息室／小型監控室 (x: -36..-24, z: -18..-4)
 	_build_west_breakroom(geo, lights, props)
 
+	# 7. B2 北側：積水貨櫃區 (x: 42..74, z: -44..-18)
+	_build_b2_containers(geo, lights, props)
+
+	# 8. B2 南側：地下洗手間與更衣室 (x: 44..68, z: 18..38)
+	_build_b2_restroom(geo, lights, props)
+
 
 func _init_local_materials() -> void:
 	_mat_concrete_dark = StandardMaterial3D.new()
@@ -470,8 +476,14 @@ func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> vo
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(76.0, by + b2_h * 0.5, -10.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(76.0, by + b2_h * 0.5, 10.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, 1.8, 6.0), Vector3(76.0, by + b2_h - 0.9, 0.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(36.0, b2_h, WALL_T), Vector3(58.0, by + b2_h * 0.5, -18.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(36.0, b2_h, WALL_T), Vector3(58.0, by + b2_h * 0.5, 18.0), MAT_HALL_WALL, true)
+	# 北牆 (z = -18)，x: 55..61 留 6m 開口往積水貨櫃區
+	_add_box(geo, Vector3(15.0, b2_h, WALL_T), Vector3(47.5, by + b2_h * 0.5, -18.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(15.0, b2_h, WALL_T), Vector3(68.5, by + b2_h * 0.5, -18.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(6.0, 1.8, WALL_T), Vector3(58.0, by + b2_h - 0.9, -18.0), MAT_HALL_WALL, true)
+	# 南牆 (z = 18)，x: 54.4..57.6 留 3.2m 開口往地下洗手間
+	_add_box(geo, Vector3(14.4, b2_h, WALL_T), Vector3(47.2, by + b2_h * 0.5, 18.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(18.4, b2_h, WALL_T), Vector3(66.8, by + b2_h * 0.5, 18.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(3.2, 2.8, WALL_T), Vector3(56.0, by + b2_h - 1.4, 18.0), MAT_HALL_WALL, true)
 
 	# B2 反射探針與中央積水
 	var b2_probe := ReflectionProbe.new()
@@ -894,3 +906,94 @@ func _show_inline_note(player: Node, title: String, body_txt: String) -> void:
 	if player and player.has_method("open_prop_ui"):
 		player.open_prop_ui(dummy)
 	dummy.queue_free()
+
+
+
+func _build_b2_containers(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# B2 北側：積水貨櫃區 (x: 42..74, z: -44..-18, y=-4.0, 挑高 6m)
+	var by := -4.0
+	var ch := 6.0
+	_add_box(geo, Vector3(32.0, 0.2, 26.0), Vector3(58.0, by - 0.1, -31.0), MAT_HALL_FLOOR, true)
+	_add_box(geo, Vector3(32.0, 0.2, 26.0), Vector3(58.0, by + ch + 0.1, -31.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(WALL_T, ch, 26.0), Vector3(42.0, by + ch * 0.5, -31.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, ch, 26.0), Vector3(74.0, by + ch * 0.5, -31.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(32.0, ch, WALL_T), Vector3(58.0, by + ch * 0.5, -44.0), MAT_HALL_WALL, true)
+
+	_add_puddle(geo, Vector3(50.0, by + 0.015, -26.0), Vector2(10.0, 8.0))
+	_add_puddle(geo, Vector3(65.0, by + 0.015, -36.0), Vector2(11.0, 7.5))
+
+	var mat_teal := StandardMaterial3D.new()
+	mat_teal.albedo_color = Color(0.16, 0.28, 0.30)
+	mat_teal.roughness = 0.85
+	var mat_rust := StandardMaterial3D.new()
+	mat_rust.albedo_color = Color(0.36, 0.20, 0.16)
+	mat_rust.roughness = 0.9
+
+	# 貨櫃陣列（含一個兩端開口可走進去穿越的空貨櫃）
+	_add_box(geo, Vector3(6.4, 2.7, 2.6), Vector3(48.0, by + 1.35, -33.0), mat_teal, true)
+	_add_box(geo, Vector3(6.4, 2.7, 2.6), Vector3(48.0, by + 4.05, -33.0), mat_rust, true)
+	_add_box(geo, Vector3(2.6, 2.7, 6.4), Vector3(67.5, by + 1.35, -26.0), mat_rust, true)
+	_add_box(geo, Vector3(2.6, 2.7, 6.4), Vector3(67.5, by + 1.35, -38.0), mat_teal, true)
+
+	# 中央可穿行的開放貨櫃通道 (x: 55..61, z: -36..-28)
+	_add_box(geo, Vector3(0.18, 2.7, 7.2), Vector3(56.5, by + 1.35, -32.0), mat_teal, true)
+	_add_box(geo, Vector3(0.18, 2.7, 7.2), Vector3(59.5, by + 1.35, -32.0), mat_teal, true)
+	_add_box(geo, Vector3(3.18, 0.18, 7.2), Vector3(58.0, by + 2.7, -32.0), mat_teal, true)
+
+	_add_omni(lights, Vector3(50.0, by + ch - 0.4, -26.0), Color(0.72, 0.88, 0.96), 1.15, 13.0, false, false)
+	_add_omni(lights, Vector3(64.0, by + ch - 0.4, -36.0), Color(0.72, 0.88, 0.96), 1.15, 13.0, false, true)
+	_add_omni(lights, Vector3(58.0, by + 2.3, -32.0), Color(1.0, 0.72, 0.35), 0.75, 7.0, false, false)
+
+	_spawn_model(props, PROP_DIR + "pallet.glb", "ContPallet", Vector3(58.0, by, -32.0), 0.0, Vector3(1.2, 0.18, 1.0))
+	_spawn_model(props, PROP_DIR + "barrel.glb", "ContBarrel_1", Vector3(64.5, by, -25.0), 0.0, Vector3(0.6, 0.9, 0.6))
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "ContCrate", Vector3(58.0, by + 0.18, -32.0), 20.0, Vector3(0.7, 0.7, 0.7))
+	_add_note_prop(props, "ContainerNote", Vector3(58.0, by + 0.88, -32.0),
+		"閱讀貨櫃內木箱上的走私筆記", "貨櫃區筆記",
+		"【B2 北側貨櫃區】\n\n"
+		+ "這些海運貨櫃不曉得是怎麼被搬進地底的。\n"
+		+ "「我們在 4 號深藍貨櫃裡睡了一晚，外面整夜都有積水被踩響的聲音——幸好早上起來門外什麼都沒有。」"
+	)
+
+
+func _build_b2_restroom(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# B2 南側：地下洗手間與更衣室 (x: 44..68, z: 18..38, 地板 y=-4.0, 低矮天花板 3.2m)
+	var by := -4.0
+	var rh := 3.2
+	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(56.0, by - 0.1, 28.0), MAT_HALL_FLOOR, true)
+	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(56.0, by + rh + 0.1, 28.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(WALL_T, rh, 20.0), Vector3(44.0, by + rh * 0.5, 28.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, rh, 20.0), Vector3(68.0, by + rh * 0.5, 28.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(24.0, rh, WALL_T), Vector3(56.0, by + rh * 0.5, 38.0), MAT_HALL_WALL, true)
+
+	# 廁所隔間（東側 x: 60..67.5）
+	for sz in [22.0, 25.0, 28.0, 31.0]:
+		_add_box(geo, Vector3(4.0, 2.2, 0.14), Vector3(65.8, by + 1.1, sz), _mat_concrete_dark, true)
+		_add_box(geo, Vector3(0.14, 2.2, 2.0), Vector3(63.8, by + 1.1, sz + 1.1), _mat_paint_white, true)
+
+	# 西側洗手台長檯面與鏡面反光帶
+	_add_box(geo, Vector3(1.1, 0.85, 8.0), Vector3(45.0, by + 0.425, 28.0), _mat_concrete_dark, true)
+	var mat_mirror := StandardMaterial3D.new()
+	mat_mirror.albedo_color = Color(0.55, 0.62, 0.64)
+	mat_mirror.metallic = 0.85
+	mat_mirror.roughness = 0.12
+	_add_box(geo, Vector3(0.06, 1.1, 7.6), Vector3(44.25, by + 1.6, 28.0), mat_mirror, false)
+
+	# 漏水積水
+	_add_puddle(geo, Vector3(48.0, by + 0.015, 28.0), Vector2(5.5, 6.5))
+
+	# 冷綠／蒼白日光燈（帶一盞閃爍）
+	_add_box(geo, Vector3(1.4, 0.06, 0.25), Vector3(54.0, by + rh - 0.05, 24.0), MAT_FLUORESCENT, false)
+	_add_box(geo, Vector3(1.4, 0.06, 0.25), Vector3(54.0, by + rh - 0.05, 33.0), MAT_FLUORESCENT, false)
+	_add_omni(lights, Vector3(54.0, by + rh - 0.3, 24.0), Color(0.76, 0.94, 0.84), 1.15, 11.5, false, false)
+	_add_omni(lights, Vector3(54.0, by + rh - 0.3, 33.0), Color(0.76, 0.94, 0.84), 1.10, 11.5, false, true)
+
+	_spawn_model(props, PROP_DIR + "trashcan.glb", "RestroomTrash", Vector3(45.5, by, 22.8), 0.0, Vector3(0.5, 0.8, 0.5))
+	_spawn_model(props, PROP_DIR + "bucket.glb", "RestroomBucket", Vector3(46.2, by, 28.5), 0.0, Vector3(0.4, 0.5, 0.4))
+	_spawn_model(props, MODEL_DIR + "filing_cabinet.glb", "Locker_1", Vector3(52.0, by, 37.1), 180.0, Vector3(0.6, 1.6, 0.7))
+	_spawn_model(props, MODEL_DIR + "filing_cabinet.glb", "Locker_2", Vector3(52.8, by, 37.1), 180.0, Vector3(0.6, 1.6, 0.7))
+	_add_note_prop(props, "RestroomMirrorNote", Vector3(45.1, by + 0.87, 27.0),
+		"查看洗手台上的濕透字條", "洗手間字條",
+		"【注意鏡子】\n\n"
+		+ "水龍頭滴出來的是微溫的自來水，但千萬別拿來洗臉。\n"
+		+ "如果你在燈閃爍的那一瞬間看見鏡子裡的倒影慢了半拍才轉頭——立刻離開洗手間。"
+	)

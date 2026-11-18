@@ -615,6 +615,8 @@ func _build_overlay() -> void:
 			{"name": "9. B2 挑高大型貨架倉庫", "pos": Vector3(44.0, -3.95, 0.0), "yaw": -PI * 0.5},
 			{"name": "10. B2 發電機房（深層貨梯）", "pos": Vector3(80.0, -3.95, 0.0), "yaw": -PI * 0.5},
 			{"name": "11. 西側員工休息室 / 監控室", "pos": Vector3(-27.0, 0.05, -11.0), "yaw": PI * 0.5},
+			{"name": "12. B2 北側：積水貨櫃區", "pos": Vector3(58.0, -3.95, -22.0), "yaw": 0.0},
+			{"name": "13. B2 南側：地下洗手間", "pos": Vector3(56.0, -3.95, 22.0), "yaw": PI},
 		]
 	else:
 		waypoints = [
@@ -921,16 +923,16 @@ class MapCanvas extends Control:
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		if is_habitable_zone:
-			# 宜居地帶 bounds: x [-38 .. +98], z [-38 .. +42]
+			# 宜居地帶 bounds: x [-38 .. +98], z [-48 .. +44]
 			var hnx := (wx + 38.0) / 136.0
-			var hnz := (wz + 38.0) / 80.0
+			var hnz := (wz + 48.0) / 92.0
 			var hpad := 16.0
 			var hw := size.x - hpad * 2.0
 			var hh := size.y - hpad * 2.0
-			var hscale := minf(hw / (136.0 / 80.0), hh)
-			var hox := (size.x - hscale * (136.0 / 80.0)) * 0.5
+			var hscale := minf(hw / (136.0 / 92.0), hh)
+			var hox := (size.x - hscale * (136.0 / 92.0)) * 0.5
 			var hoy := (size.y - hscale) * 0.5
-			return Vector2(hox + hnx * hscale * (136.0 / 80.0), hoy + hnz * hscale)
+			return Vector2(hox + hnx * hscale * (136.0 / 92.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -963,6 +965,8 @@ class MapCanvas extends Control:
 			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.45, 0.38, 0.22, 0.95), "安全避難所")
 			_draw_zone(24.0, -3.0, 40.0, 3.0, Color(0.36, 0.38, 0.40, 0.92), "B2斜坡")
 			_draw_zone(40.0, -18.0, 76.0, 18.0, Color(0.24, 0.29, 0.34, 0.92), "B2 挑高貨架倉庫")
+			_draw_zone(42.0, -44.0, 74.0, -18.0, Color(0.18, 0.30, 0.34, 0.92), "B2 積水貨櫃區")
+			_draw_zone(44.0, 18.0, 68.0, 38.0, Color(0.28, 0.36, 0.32, 0.92), "B2 地下洗手間")
 			_draw_zone(76.0, -10.0, 94.0, 10.0, Color(0.55, 0.32, 0.16, 0.92), "發電機房/貨梯")
 			_draw_zone(49.0, -1.5, 59.0, 2.5, Color(0.14, 0.26, 0.34, 0.85), "")
 			_draw_zone(-16.5, -10.5, -5.5, -2.5, Color(0.14, 0.26, 0.34, 0.85), "積水")
