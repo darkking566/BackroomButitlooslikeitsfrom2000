@@ -172,7 +172,7 @@ static func _expand_garden(hz: Node3D, geo: StaticBody3D, lights: Node3D, props:
 	hz._add_box(geo, Vector3(WALL_T, gh, 20.0), Vector3(82.0, by + gh * 0.5, -74.0), hz.MAT_HALL_WALL, true)
 	hz._add_box(geo, Vector3(20.0, gh, WALL_T), Vector3(72.0, by + gh * 0.5, -84.0), hz.MAT_HALL_WALL, true)
 	hz._add_box(geo, Vector3(20.0, gh, WALL_T), Vector3(72.0, by + gh * 0.5, -64.0), hz.MAT_HALL_WALL, true)
-	hz._add_box(geo, Vector3(2.2, gh, 2.2), Vector3(72.0, by + gh * 0.5, -74.0), mat_vine, true) # 巨型植物樹柱
+	hz._spawn_model(props, PROP_DIR + "dead_tree.glb", "GardenDeadTree", Vector3(72.0, by, -74.0), 15.0, Vector3(1.2, 4.8, 1.2))
 	hz._add_omni(lights, Vector3(72.0, by + gh - 0.4, -74.0), Color(0.92, 0.96, 0.68), 1.6, 15.0, false, false)
 
 	# 區段5：東側被植物吞沒的車庫殘骸 (70..92, -60..-44)

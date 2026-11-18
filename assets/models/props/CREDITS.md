@@ -25,6 +25,7 @@
 | car_suv.glb | SUV | Quaternius | https://poly.pizza/m/xsMtZhBkxL |
 | traffic_cone.glb | Traffic Cone | Quaternius | https://poly.pizza/m/aDIrUbMbW3 |
 | dumpster.glb | Dumpster | Quaternius | https://poly.pizza/m/PKsbolkZSr |
+| dead_tree.glb | Dead Tree | Quaternius | https://poly.pizza/m/n8FhMgMldD |
 
 ## blender_map.glb
 User-supplied Blender import of the Garry's Mod map gm_br_pitfalls (textures downscaled to 128px PNG, normal maps dropped; 2274 Source lights exported to blender_map_lights.json). Third-party content: check the original map license before publishing the game.

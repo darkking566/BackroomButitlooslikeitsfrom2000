@@ -111,11 +111,7 @@ static func _populate_garden(hz: Node3D, geo: StaticBody3D, _lights: Node3D, pro
 		hz._add_box(geo, Vector3(0.16, 4.8, 0.16), Vector3(61.6, by + 2.4, gz), hz._mat_pipe, false)
 		hz._add_box(geo, Vector3(7.4, 0.16, 0.16), Vector3(58.0, by + 4.8, gz), hz._mat_pipe, false)
 
-	# 2. 東北樹根廳：從中央巨樹柱往外延伸的四條巨型斜向樹根
-	hz._add_rotated_box(geo, Vector3(6.5, 0.55, 0.7), Vector3(69.0, by + 0.9, -74.0), Vector3(0.0, 0.0, 0.35), mat_vine, true)
-	hz._add_rotated_box(geo, Vector3(6.5, 0.55, 0.7), Vector3(75.0, by + 0.9, -74.0), Vector3(0.0, 0.0, -0.35), mat_vine, true)
-	hz._add_rotated_box(geo, Vector3(0.7, 0.55, 6.5), Vector3(72.0, by + 0.9, -71.0), Vector3(-0.35, 0.0, 0.0), mat_vine, true)
-	hz._add_rotated_box(geo, Vector3(0.7, 0.55, 6.5), Vector3(72.0, by + 0.9, -77.0), Vector3(0.35, 0.0, 0.0), mat_vine, true)
+	# 2. 東北樹根廳：改用真實低模枯樹與植物叢，不再用綠色方塊湊數
 	hz._spawn_model(props, PROP_DIR + "plant.glb", "GardenRootPlant_1", Vector3(66.0, by, -68.0), 10.0, Vector3(0.7, 1.1, 0.7))
 	hz._spawn_model(props, PROP_DIR + "plant.glb", "GardenRootPlant_2", Vector3(78.0, by, -80.0), 45.0, Vector3(0.7, 1.1, 0.7))
 
