@@ -178,6 +178,9 @@ func _build_habitable_zone() -> void:
 	# 4. 東側：地下二層（B2）車道斜坡＋挑高大型貨架倉庫 (x: 24..76)
 	_build_b2_warehouse(geo, lights, props)
 
+	# 5. B2 最東側：暖橘燈發電機房＋深層貨梯出口 (x: 76..94)
+	_build_generator_room(geo, lights, props)
+
 
 func _init_local_materials() -> void:
 	_mat_concrete_dark = StandardMaterial3D.new()
@@ -457,7 +460,9 @@ func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> vo
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(40.0, by + b2_h * 0.5, -10.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(40.0, by + b2_h * 0.5, 10.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, 1.8, 6.0), Vector3(40.0, by + b2_h - 0.9, 0.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, b2_h, 36.0), Vector3(76.0, by + b2_h * 0.5, 0.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(76.0, by + b2_h * 0.5, -10.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(76.0, by + b2_h * 0.5, 10.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, 1.8, 6.0), Vector3(76.0, by + b2_h - 0.9, 0.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(36.0, b2_h, WALL_T), Vector3(58.0, by + b2_h * 0.5, -18.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(36.0, b2_h, WALL_T), Vector3(58.0, by + b2_h * 0.5, 18.0), MAT_HALL_WALL, true)
 
@@ -495,6 +500,53 @@ func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> vo
 		+ "這裡的天花板比一樓停車場高出許多，整排貨架上堆滿了沒有標籤的密封木箱。\n"
 		+ "我們試著撬開過三個箱子：第一個裡面全是杏仁水，第二個是空白的錄影帶，第三個……是空的，但箱蓋內側有抓痕。\n\n"
 		+ "「別在晚上走進最東邊的貨架通道。」"
+	)
+
+
+func _build_generator_room(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# B2 發電機房／鍋爐室 (x: 76..94, z: -10..10, 地板 y=-4.0, 天花 y=1.0)
+	var by := -4.0
+	var gh := 5.0
+	_add_box(geo, Vector3(18.0, 0.2, 20.0), Vector3(85.0, by - 0.1, 0.0), MAT_DARK_BRICK, true)
+	_add_box(geo, Vector3(18.0, 0.2, 20.0), Vector3(85.0, by + gh + 0.1, 0.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(18.0, gh, WALL_T), Vector3(85.0, by + gh * 0.5, -10.0), MAT_DARK_BRICK, true)
+	_add_box(geo, Vector3(18.0, gh, WALL_T), Vector3(85.0, by + gh * 0.5, 10.0), MAT_DARK_BRICK, true)
+	_add_box(geo, Vector3(WALL_T, gh, 20.0), Vector3(94.0, by + gh * 0.5, 0.0), MAT_DARK_BRICK, true)
+
+	# 暖橘色工業燈光（與冷白倉庫形成強烈對比）
+	_add_omni(lights, Vector3(82.0, by + gh - 0.4, -4.5), Color(1.0, 0.56, 0.22), 1.45, 13.0, false, false)
+	_add_omni(lights, Vector3(82.0, by + gh - 0.4, 4.5), Color(1.0, 0.52, 0.20), 1.45, 13.0, false, true)
+	_add_omni(lights, Vector3(91.5, by + 3.2, 0.0), Color(1.0, 0.24, 0.18), 0.9, 8.0, false, false)
+
+	# 兩座大型柴油發電機／鍋爐機組
+	for gz in [-5.8, 5.8]:
+		_add_box(geo, Vector3(5.2, 0.35, 2.8), Vector3(83.5, by + 0.175, gz), _mat_concrete_dark, true)
+		_add_box(geo, Vector3(4.2, 1.8, 2.0), Vector3(83.5, by + 1.25, gz), _mat_pipe, true)
+		_add_box(geo, Vector3(4.3, 0.2, 2.1), Vector3(83.5, by + 0.55, gz), _mat_hazard, false)
+		_add_status_lamp(props, Vector3(81.35, by + 1.55, gz), true)
+		# 排氣管直通天花板
+		var pipe_mi := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.22
+		cm.bottom_radius = 0.22
+		cm.height = 3.2
+		cm.radial_segments = 10
+		pipe_mi.mesh = cm
+		pipe_mi.position = Vector3(84.6, by + 3.4, gz)
+		pipe_mi.material_override = _mat_pipe
+		geo.add_child(pipe_mi)
+
+	# 東端深層貨梯出口 (x = 91.5..93.8, z = -2..2)
+	_add_box(geo, Vector3(2.4, 3.2, 0.18), Vector3(92.4, by + 1.6, -2.0), MAT_VENT_GRILL, true)
+	_add_box(geo, Vector3(2.4, 3.2, 0.18), Vector3(92.4, by + 1.6, 2.0), MAT_VENT_GRILL, true)
+	_add_box(geo, Vector3(0.2, 3.2, 4.0), Vector3(93.6, by + 1.6, 0.0), MAT_VENT_GRILL, true)
+	_spawn_model(props, MODEL_DIR + "exit_sign.glb", "ElevatorExitSign", Vector3(91.1, by + 3.3, 0.0), -90.0, Vector3(0.5, 0.25, 0.2))
+	_add_status_lamp(props, Vector3(91.15, by + 1.4, -2.2), true)
+	_add_interactive_box(props, "CargoElevatorCall", Vector3(91.15, by + 1.3, -2.2), Vector3(0.6, 1.0, 0.6),
+		"按下深層貨梯按鈕（通往：管道區）", "深層貨梯終端",
+		"【深層貨梯 — 目標層級：管道區】\n\n"
+		+ "貨梯面板的指示燈已經亮起，代表這裡就是「宜居地帶」通往下一層的正式出口。\n"
+		+ "（目前「管道區」尚未施工完成，預計於下一次擴建後開放搭乘！）"
 	)
 
 

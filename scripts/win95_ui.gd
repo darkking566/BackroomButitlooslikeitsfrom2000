@@ -611,6 +611,7 @@ func _build_overlay() -> void:
 			{"name": "7. 南側地下安全避難所", "pos": Vector3(0.0, 0.05, 34.5), "yaw": PI},
 			{"name": "8. B1→B2 車道斜坡入口", "pos": Vector3(23.0, 0.05, 0.0), "yaw": -PI * 0.5},
 			{"name": "9. B2 挑高大型貨架倉庫", "pos": Vector3(44.0, -3.95, 0.0), "yaw": -PI * 0.5},
+			{"name": "10. B2 發電機房（深層貨梯）", "pos": Vector3(80.0, -3.95, 0.0), "yaw": -PI * 0.5},
 		]
 	else:
 		waypoints = [
@@ -917,16 +918,16 @@ class MapCanvas extends Control:
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		if is_habitable_zone:
-			# 宜居地帶 bounds: x [-28 .. +80], z [-38 .. +42]
-			var hnx := (wx + 28.0) / 108.0
+			# 宜居地帶 bounds: x [-28 .. +98], z [-38 .. +42]
+			var hnx := (wx + 28.0) / 126.0
 			var hnz := (wz + 38.0) / 80.0
 			var hpad := 16.0
 			var hw := size.x - hpad * 2.0
 			var hh := size.y - hpad * 2.0
-			var hscale := minf(hw / (108.0 / 80.0), hh)
-			var hox := (size.x - hscale * (108.0 / 80.0)) * 0.5
+			var hscale := minf(hw / (126.0 / 80.0), hh)
+			var hox := (size.x - hscale * (126.0 / 80.0)) * 0.5
 			var hoy := (size.y - hscale) * 0.5
-			return Vector2(hox + hnx * hscale * (108.0 / 80.0), hoy + hnz * hscale)
+			return Vector2(hox + hnx * hscale * (126.0 / 80.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -958,6 +959,7 @@ class MapCanvas extends Control:
 			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.45, 0.38, 0.22, 0.95), "安全避難所")
 			_draw_zone(24.0, -3.0, 40.0, 3.0, Color(0.36, 0.38, 0.40, 0.92), "B2斜坡")
 			_draw_zone(40.0, -18.0, 76.0, 18.0, Color(0.24, 0.29, 0.34, 0.92), "B2 挑高貨架倉庫")
+			_draw_zone(76.0, -10.0, 94.0, 10.0, Color(0.55, 0.32, 0.16, 0.92), "發電機房/貨梯")
 			_draw_zone(49.0, -1.5, 59.0, 2.5, Color(0.14, 0.26, 0.34, 0.85), "")
 			_draw_zone(-16.5, -10.5, -5.5, -2.5, Color(0.14, 0.26, 0.34, 0.85), "積水")
 			_draw_zone(6.5, 2.75, 16.5, 11.25, Color(0.14, 0.26, 0.34, 0.85), "積水")
