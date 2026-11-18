@@ -1207,44 +1207,110 @@ func _build_garden_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 
 
 func _build_lore_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 傳說段 (Lore)：三百年前朱漆木質殘留＋現代霓虹與彩色電纜 (x: 78..96, z: 10..28, y=-4.0)
+	# 傳說段 (Lore)：主大廳 (78..96, 10..28) ＋ 東側古代書房廂房 (96..106, 12..26) ＋ 南側霓虹電纜長廊 (80..94, 28..38)
 	var by := -4.0
-	var lh := 4.4
+	var lh := 4.6
 	var mat_crimson_wood := StandardMaterial3D.new()
 	mat_crimson_wood.albedo_color = Color(0.42, 0.11, 0.10)
-	mat_crimson_wood.roughness = 0.75
+	mat_crimson_wood.roughness = 0.78
+	var mat_dark_wood := StandardMaterial3D.new()
+	mat_dark_wood.albedo_color = Color(0.22, 0.10, 0.08)
+	mat_dark_wood.roughness = 0.85
 
+	# 1. 主大廳 (x: 78..96, z: 10..28)
 	_add_box(geo, Vector3(18.0, 0.2, 18.0), Vector3(87.0, by - 0.1, 19.0), mat_crimson_wood, true)
-	_add_box(geo, Vector3(18.0, 0.2, 18.0), Vector3(87.0, by + lh + 0.1, 19.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(18.0, 0.2, 18.0), Vector3(87.0, by + lh + 0.1, 19.0), mat_dark_wood, true)
 	_add_box(geo, Vector3(WALL_T, lh, 18.0), Vector3(78.0, by + lh * 0.5, 19.0), mat_crimson_wood, true)
-	_add_box(geo, Vector3(WALL_T, lh, 18.0), Vector3(96.0, by + lh * 0.5, 19.0), mat_crimson_wood, true)
-	_add_box(geo, Vector3(18.0, lh, WALL_T), Vector3(87.0, by + lh * 0.5, 28.0), mat_crimson_wood, true)
+	# 東牆 (x=96) 于 z:17.2..20.8 留 3.6m 門洞往古代書房
+	_add_box(geo, Vector3(WALL_T, lh, 7.2), Vector3(96.0, by + lh * 0.5, 13.6), mat_crimson_wood, true)
+	_add_box(geo, Vector3(WALL_T, lh, 7.2), Vector3(96.0, by + lh * 0.5, 24.4), mat_crimson_wood, true)
+	_add_box(geo, Vector3(WALL_T, 1.8, 3.6), Vector3(96.0, by + lh - 0.9, 19.0), mat_crimson_wood, true)
+	# 南牆 (z=28) 于 x:85..89 留 4m 門洞往霓虹電纜長廊
+	_add_box(geo, Vector3(7.0, lh, WALL_T), Vector3(81.5, by + lh * 0.5, 28.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(7.0, lh, WALL_T), Vector3(92.5, by + lh * 0.5, 28.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(4.0, 1.8, WALL_T), Vector3(87.0, by + lh - 0.9, 28.0), mat_crimson_wood, true)
 
-	# 朱漆木柱與霓虹燈條（青色與洋紅交錯）
+	# 中央木質矮台階與朱漆木柱＋橫樑
+	_add_box(geo, Vector3(4.6, 0.16, 4.6), Vector3(87.0, by + 0.08, 19.0), mat_dark_wood, true)
 	for px in [82.5, 91.5]:
 		for pz in [14.5, 23.5]:
 			_add_box(geo, Vector3(0.75, lh, 0.75), Vector3(px, by + lh * 0.5, pz), mat_crimson_wood, true)
+			_add_box(geo, Vector3(0.85, 0.25, 0.85), Vector3(px, by + 0.25, pz), mat_dark_wood, false)
+
+	# 現代霓虹燈管（青色、洋紅、琥珀）與彩色電纜網
 	var mat_neon_cyan := StandardMaterial3D.new()
 	mat_neon_cyan.albedo_color = Color(0.2, 0.9, 1.0)
 	mat_neon_cyan.emission_enabled = true
 	mat_neon_cyan.emission = Color(0.2, 0.9, 1.0)
-	mat_neon_cyan.emission_energy_multiplier = 2.2
+	mat_neon_cyan.emission_energy_multiplier = 2.4
 	var mat_neon_mag := StandardMaterial3D.new()
 	mat_neon_mag.albedo_color = Color(0.95, 0.25, 0.75)
 	mat_neon_mag.emission_enabled = true
 	mat_neon_mag.emission = Color(0.95, 0.25, 0.75)
-	mat_neon_mag.emission_energy_multiplier = 2.2
+	mat_neon_mag.emission_energy_multiplier = 2.4
+	var mat_neon_amber := StandardMaterial3D.new()
+	mat_neon_amber.albedo_color = Color(1.0, 0.72, 0.20)
+	mat_neon_amber.emission_enabled = true
+	mat_neon_amber.emission = Color(1.0, 0.72, 0.20)
+	mat_neon_amber.emission_energy_multiplier = 2.0
 
-	_add_box(geo, Vector3(14.0, 0.1, 0.1), Vector3(87.0, by + 3.4, 14.5), mat_neon_cyan, false)
-	_add_box(geo, Vector3(14.0, 0.1, 0.1), Vector3(87.0, by + 3.4, 23.5), mat_neon_mag, false)
-	_add_omni(lights, Vector3(87.0, by + 3.2, 15.0), Color(0.25, 0.88, 1.0), 1.3, 12.0, false, false)
-	_add_omni(lights, Vector3(87.0, by + 3.2, 23.0), Color(0.95, 0.30, 0.75), 1.3, 12.0, false, false)
+	# 橫向＋直立霓虹燈管
+	_add_box(geo, Vector3(14.0, 0.09, 0.09), Vector3(87.0, by + 3.6, 14.5), mat_neon_cyan, false)
+	_add_box(geo, Vector3(14.0, 0.09, 0.09), Vector3(87.0, by + 3.6, 23.5), mat_neon_mag, false)
+	_add_box(geo, Vector3(0.09, 3.2, 0.09), Vector3(82.05, by + 2.0, 14.5), mat_neon_cyan, false)
+	_add_box(geo, Vector3(0.09, 3.2, 0.09), Vector3(91.95, by + 2.0, 23.5), mat_neon_mag, false)
+	_add_box(geo, Vector3(0.09, 0.09, 12.0), Vector3(82.5, by + 3.9, 19.0), mat_neon_amber, false)
+	_add_box(geo, Vector3(0.09, 0.09, 12.0), Vector3(91.5, by + 3.9, 19.0), mat_neon_cyan, false)
 
-	_spawn_model(props, PROP_DIR + "armchair.glb", "LoreSeat", Vector3(87.0, by, 25.8), 180.0, Vector3(1.7, 1.0, 1.6))
-	_add_note_prop(props, "LoreNote", Vector3(87.0, by + 0.05, 19.0),
-		"閱讀地面上的歷史殘卷", "傳說段觀測紀錄",
+	_add_omni(lights, Vector3(87.0, by + 3.3, 15.0), Color(0.25, 0.88, 1.0), 1.3, 12.0, false, false)
+	_add_omni(lights, Vector3(87.0, by + 3.3, 23.0), Color(0.95, 0.30, 0.75), 1.3, 12.0, false, true)
+
+	_spawn_model(props, PROP_DIR + "armchair.glb", "LoreSeat", Vector3(87.0, by + 0.16, 19.0), 180.0, Vector3(1.7, 1.0, 1.6))
+	_spawn_model(props, PROP_DIR + "floor_lamp.glb", "LoreLamp_1", Vector3(80.0, by, 13.5), 0.0, Vector3(0.4, 1.6, 0.4))
+	_spawn_model(props, PROP_DIR + "floor_lamp.glb", "LoreLamp_2", Vector3(94.0, by, 24.5), 0.0, Vector3(0.4, 1.6, 0.4))
+	_add_note_prop(props, "LoreNote", Vector3(85.2, by + 0.18, 19.0),
+		"閱讀木台階上的歷史殘卷", "傳說段觀測紀錄",
 		"【傳說段 — 被遺忘的人類要塞】\n\n"
 		+ "三百年前，這片區域曾保留著朱漆木質的溫馨風貌，是古老流浪者的要塞。\n"
 		+ "隨著時代更迭與走廊變動，這裡一度與世隔絕，直到如今重新現世——\n"
-		+ "古老的朱紅木柱上，已纏滿了現代的絢麗霓虹燈管與彩色電纜。"
+		+ "古老的朱紅木柱上，已纏滿了現代的絢麗霓虹燈管與彩色電纜。\n"
+		+ "• 往東門洞可進入古代書房廂房；往南門洞則是電纜纏繞的現代侵蝕走廊。"
 	)
+
+	# 2. 東側古代木質書房廂房 (x: 96..106, z: 12..26)
+	_add_box(geo, Vector3(10.0, 0.2, 14.0), Vector3(101.0, by - 0.1, 19.0), mat_dark_wood, true)
+	_add_box(geo, Vector3(10.0, 0.2, 14.0), Vector3(101.0, by + 3.6, 19.0), mat_dark_wood, true)
+	_add_box(geo, Vector3(WALL_T, 3.6, 14.0), Vector3(106.0, by + 1.8, 19.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(10.0, 3.6, WALL_T), Vector3(101.0, by + 1.8, 12.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(10.0, 3.6, WALL_T), Vector3(101.0, by + 1.8, 26.0), mat_crimson_wood, true)
+	_add_omni(lights, Vector3(101.0, by + 3.1, 19.0), Color(1.0, 0.78, 0.45), 1.25, 11.0, false, false)
+
+	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "LoreStudyDesk", Vector3(104.2, by, 19.0), -90.0, Vector3(1.5, 0.78, 0.8))
+	_spawn_model(props, PROP_DIR + "shelf_small.glb", "LoreShelf_1", Vector3(101.0, by, 13.0), 0.0, Vector3(1.2, 1.8, 0.5))
+	_spawn_model(props, PROP_DIR + "shelf_small.glb", "LoreShelf_2", Vector3(103.0, by, 13.0), 0.0, Vector3(1.2, 1.8, 0.5))
+	_spawn_model(props, PROP_DIR + "floor_lamp.glb", "LoreStudyLamp", Vector3(104.5, by, 24.5), 0.0, Vector3(0.4, 1.6, 0.4))
+	_spawn_model(props, PROP_DIR + "plant.glb", "LoreStudyPlant", Vector3(97.5, by, 24.5), 20.0, Vector3(0.5, 0.9, 0.5))
+	_add_note_prop(props, "LoreAncientDiary", Vector3(104.2, by + 0.80, 19.0),
+		"翻開書桌上的古老手札", "三百年前的要塞守衛手札",
+		"【紀年殘頁（約三百年前）】\n\n"
+		+ "「今天又來了三位誤入的旅人，我們在朱漆正廳為他們點起油燈。\n"
+		+ "外面的走廊似乎開始變得冰冷而灰暗，牆壁不再是木頭，而是奇怪的灰色石塊……\n"
+		+ "如果有一天這座要塞也被那股力量吞沒，願後來者仍能看見這抹溫暖的紅。」"
+	)
+
+	# 3. 南側霓虹電纜長廊 (x: 80..94, z: 28..38)
+	_add_box(geo, Vector3(14.0, 0.2, 10.0), Vector3(87.0, by - 0.1, 33.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(14.0, 0.2, 10.0), Vector3(87.0, by + 3.8, 33.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(WALL_T, 3.8, 10.0), Vector3(80.0, by + 1.9, 33.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(WALL_T, 3.8, 10.0), Vector3(94.0, by + 1.9, 33.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(14.0, 3.8, WALL_T), Vector3(87.0, by + 1.9, 38.0), _mat_concrete_dark, true)
+
+	# 成排彩色電纜橫跨走廊上方與牆邊
+	_add_box(geo, Vector3(13.2, 0.07, 0.07), Vector3(87.0, by + 3.2, 31.0), mat_neon_cyan, false)
+	_add_box(geo, Vector3(13.2, 0.07, 0.07), Vector3(87.0, by + 3.0, 33.0), mat_neon_mag, false)
+	_add_box(geo, Vector3(13.2, 0.07, 0.07), Vector3(87.0, by + 3.3, 35.0), mat_neon_amber, false)
+	_add_omni(lights, Vector3(87.0, by + 3.1, 34.0), Color(0.55, 0.85, 1.0), 1.2, 11.0, false, false)
+
+	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "LoreModernDesk", Vector3(87.0, by, 36.8), 180.0, Vector3(1.5, 0.78, 0.8))
+	_spawn_model(props, PROP_DIR + "computer_screen.glb", "LoreModernScreen", Vector3(87.0, by + 0.78, 36.8), 180.0, Vector3(0.5, 0.45, 0.4))
+	_add_wiki_terminal(props, "LoreWikiTerminal", Vector3(87.0, by + 1.0, 36.8), Vector3(0.65, 0.65, 0.65), "使用走廊盡頭的終端機查閱檔案庫")

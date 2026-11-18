@@ -936,16 +936,16 @@ class MapCanvas extends Control:
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		if is_habitable_zone:
-			# 宜居地帶 bounds: x [-50 .. +100], z [-66 .. +44]
-			var hnx := (wx + 50.0) / 150.0
+			# 宜居地帶 bounds: x [-50 .. +108], z [-66 .. +44]
+			var hnx := (wx + 50.0) / 158.0
 			var hnz := (wz + 66.0) / 110.0
 			var hpad := 16.0
 			var hw := size.x - hpad * 2.0
 			var hh := size.y - hpad * 2.0
-			var hscale := minf(hw / (150.0 / 110.0), hh)
-			var hox := (size.x - hscale * (150.0 / 110.0)) * 0.5
+			var hscale := minf(hw / (158.0 / 110.0), hh)
+			var hox := (size.x - hscale * (158.0 / 110.0)) * 0.5
 			var hoy := (size.y - hscale) * 0.5
-			return Vector2(hox + hnx * hscale * (150.0 / 110.0), hoy + hnz * hscale)
+			return Vector2(hox + hnx * hscale * (158.0 / 110.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -978,7 +978,9 @@ class MapCanvas extends Control:
 			_draw_zone(-48.0, 2.0, -24.0, 20.0, Color(0.68, 0.70, 0.68, 0.92), "哥特段（醫療）")
 			_draw_zone(10.0, -38.0, 28.0, -20.0, Color(0.45, 0.35, 0.20, 0.92), "銜尾段（施工）")
 			_draw_zone(46.0, -64.0, 70.0, -44.0, Color(0.16, 0.45, 0.22, 0.92), "花園段（砼苑）")
-			_draw_zone(78.0, 10.0, 96.0, 28.0, Color(0.48, 0.16, 0.26, 0.92), "傳說段（霓虹）")
+			_draw_zone(78.0, 10.0, 96.0, 28.0, Color(0.48, 0.16, 0.26, 0.92), "傳說段（正廳）")
+			_draw_zone(96.0, 12.0, 106.0, 26.0, Color(0.42, 0.22, 0.14, 0.92), "古代書房")
+			_draw_zone(80.0, 28.0, 94.0, 38.0, Color(0.24, 0.30, 0.48, 0.92), "霓虹長廊")
 			_draw_zone(-8.0, 20.0, 8.0, 30.0, Color(0.20, 0.25, 0.32, 0.92), "南側積水車道")
 			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.55, 0.45, 0.20, 0.95), "M.E.G. Alpha基地")
 			_draw_zone(24.0, -3.0, 40.0, 3.0, Color(0.36, 0.38, 0.40, 0.92), "斜坡")
