@@ -936,16 +936,16 @@ class MapCanvas extends Control:
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		if is_habitable_zone:
-			# 宜居地帶 bounds: x [-74 .. +110], z [-86 .. +50]
+			# 宜居地帶 bounds: x [-74 .. +110], z [-86 .. +62]
 			var hnx := (wx + 74.0) / 184.0
-			var hnz := (wz + 86.0) / 136.0
+			var hnz := (wz + 86.0) / 148.0
 			var hpad := 16.0
 			var hw := size.x - hpad * 2.0
 			var hh := size.y - hpad * 2.0
-			var hscale := minf(hw / (184.0 / 136.0), hh)
-			var hox := (size.x - hscale * (184.0 / 136.0)) * 0.5
+			var hscale := minf(hw / (184.0 / 148.0), hh)
+			var hox := (size.x - hscale * (184.0 / 148.0)) * 0.5
 			var hoy := (size.y - hscale) * 0.5
-			return Vector2(hox + hnx * hscale * (184.0 / 136.0), hoy + hnz * hscale)
+			return Vector2(hox + hnx * hscale * (184.0 / 148.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -989,7 +989,7 @@ class MapCanvas extends Control:
 			_draw_zone(96.0, 12.0, 108.0, 36.0, Color(0.42, 0.22, 0.14, 0.92), "書房/檔案閣")
 			_draw_zone(80.0, 28.0, 96.0, 48.0, Color(0.24, 0.30, 0.48, 0.92), "霓虹長廊/機房")
 			_draw_zone(-8.0, 20.0, 8.0, 30.0, Color(0.20, 0.25, 0.32, 0.92), "南側積水車道")
-			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.55, 0.45, 0.20, 0.95), "M.E.G. Alpha基地")
+			_draw_zone(-17.0, 30.0, 17.0, 58.0, Color(0.55, 0.45, 0.20, 0.95), "M.E.G. Alpha 主基地 (5區)")
 			_draw_zone(24.0, -3.0, 40.0, 3.0, Color(0.36, 0.38, 0.40, 0.92), "斜坡")
 			_draw_zone(40.0, -18.0, 76.0, 18.0, Color(0.34, 0.32, 0.24, 0.92), "躍金段（倉庫/商人之家）")
 			_draw_zone(42.0, -44.0, 74.0, -18.0, Color(0.18, 0.30, 0.34, 0.92), "B2 積水貨櫃區")

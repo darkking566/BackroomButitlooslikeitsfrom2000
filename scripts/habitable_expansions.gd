@@ -242,3 +242,95 @@ static func _expand_lore(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: N
 	hz._add_box(geo, Vector3(16.0, 3.8, WALL_T), Vector3(88.0, by + 1.9, 48.0), hz._mat_concrete_dark, true)
 	hz._add_omni(lights, Vector3(88.0, by + 3.1, 43.0), Color(0.25, 0.90, 1.0), 1.35, 12.0, false, true)
 	hz._spawn_model(props, MODEL_DIR + "breaker_box.glb", "LoreCableBreaker", Vector3(95.4, by + 1.4, 43.0), -90.0, Vector3(0.35, 0.7, 0.5))
+
+
+
+static func build_alpha_base(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# M.E.G. Alpha 主基地 (x: -17..17, z: 30..58, 總面積 952 m²，5 大功能區)
+	var h := 3.6
+	var mat_floor: Material = hz.MAT_HALL_FLOOR
+	var mat_wall: Material = hz.MAT_HALL_WALL
+	var mat_dark: Material = hz._mat_concrete_dark
+	var mat_yellow: Material = hz._mat_hazard
+
+	# 總地板與天花板 (34m x 28m)
+	hz._add_box(geo, Vector3(34.0, 0.2, 28.0), Vector3(0.0, -0.1, 44.0), mat_floor, true)
+	hz._add_box(geo, Vector3(34.0, 0.2, 28.0), Vector3(0.0, h + 0.1, 44.0), mat_dark, true)
+	# 外圍封閉牆（北牆 z=30 留中央 3.6m 捲門洞）
+	hz._add_box(geo, Vector3(15.2, h, WALL_T), Vector3(-9.4, h * 0.5, 30.0), mat_wall, true)
+	hz._add_box(geo, Vector3(15.2, h, WALL_T), Vector3(9.4, h * 0.5, 30.0), mat_wall, true)
+	hz._add_box(geo, Vector3(34.0, h, WALL_T), Vector3(0.0, h * 0.5, 58.0), mat_wall, true)
+	hz._add_box(geo, Vector3(WALL_T, h, 28.0), Vector3(-17.0, h * 0.5, 44.0), mat_wall, true)
+	hz._add_box(geo, Vector3(WALL_T, h, 28.0), Vector3(17.0, h * 0.5, 44.0), mat_wall, true)
+
+	# 內部隔間牆（分出：1.安檢接待大廳 x:-6..6, z:30..44 | 2.西側作戰簡報室 -17..-6, 30..44 | 3.東側物資倉庫 6..17, 30..44 | 4.西南宿舍 -17..0, 44..58 | 5.東南通訊整備 0..17, 44..58）
+	# 西隔牆 x = -6 (z: 30..44 留 z:35..39 門洞)
+	hz._add_box(geo, Vector3(0.28, h, 5.0), Vector3(-6.0, h * 0.5, 32.5), mat_wall, true)
+	hz._add_box(geo, Vector3(0.28, h, 5.0), Vector3(-6.0, h * 0.5, 41.5), mat_wall, true)
+	# 東隔牆 x = 6 (z: 30..44 留 z:35..39 門洞)
+	hz._add_box(geo, Vector3(0.28, h, 5.0), Vector3(6.0, h * 0.5, 32.5), mat_wall, true)
+	hz._add_box(geo, Vector3(0.28, h, 5.0), Vector3(6.0, h * 0.5, 41.5), mat_wall, true)
+	# 南半部橫牆 z = 44 (x: -17..17 留 x:-3..3 中央走廊門洞 + x:-12..-9 + x:9..12)
+	hz._add_box(geo, Vector3(6.0, h, 0.28), Vector3(-3.0, h * 0.5, 44.0), mat_wall, true)
+	hz._add_box(geo, Vector3(6.0, h, 0.28), Vector3(3.0, h * 0.5, 44.0), mat_wall, true)
+	hz._add_box(geo, Vector3(5.0, h, 0.28), Vector3(-14.5, h * 0.5, 44.0), mat_wall, true)
+	hz._add_box(geo, Vector3(5.0, h, 0.28), Vector3(14.5, h * 0.5, 44.0), mat_wall, true)
+	# 南半部中隔牆 x = 0 (z: 44..58 留 z:49..53 門洞)
+	hz._add_box(geo, Vector3(0.28, h, 5.0), Vector3(0.0, h * 0.5, 46.5), mat_wall, true)
+	hz._add_box(geo, Vector3(0.28, h, 5.0), Vector3(0.0, h * 0.5, 55.5), mat_wall, true)
+
+	# 1. 安檢接待大廳（溫暖黃燈＋淡黃旗幟＋接待櫃檯＋兩位淡黃外套巡邏隊員）
+	hz._add_omni(lights, Vector3(0.0, 3.1, 36.5), Color(1.0, 0.88, 0.65), 1.45, 13.0, false, false)
+	hz._add_box(geo, Vector3(4.5, 0.6, 0.08), Vector3(0.0, 2.75, 43.8), mat_yellow, false)
+	hz._add_box(geo, Vector3(4.2, 1.0, 0.8), Vector3(0.0, 0.5, 39.5), mat_dark, true)
+	for px in [-2.8, 2.8]:
+		hz._add_box(geo, Vector3(0.55, 1.45, 0.35), Vector3(px, 0.725, 38.0), mat_yellow, true)
+		hz._add_box(geo, Vector3(0.32, 0.32, 0.32), Vector3(px, 1.65, 38.0), mat_dark, false)
+	hz._spawn_model(props, PROP_DIR + "computer_screen.glb", "AlphaLobbyScreen", Vector3(0.4, 1.0, 39.5), 180.0, Vector3(0.5, 0.45, 0.4))
+	hz._add_wiki_terminal(props, "AlphaWikiTerminal", Vector3(0.4, 1.2, 39.5), Vector3(0.65, 0.65, 0.65), "使用 Alpha 基地終端機查閱檔案庫")
+	hz._add_note_prop(props, "ShelterLogNote", Vector3(-0.6, 1.02, 39.5),
+		"閱讀 M.E.G. Alpha 基地報到處登記簿", "M.E.G. Alpha 基地（總部）",
+		"【歡迎來到：探險者總署 Alpha 主基地】\n\n"
+		+ "這裡是宜居地帶規模最大的人類聚落，設有西側作戰簡報室、東側物資補給庫、西南宿舍區與東南通訊整備室。\n"
+		+ "若在天鷹段外圍看見身穿淡黃色外套、佩帶雄鷹徽章的巡邏隊，可隨時向他們尋求護送。"
+	)
+
+	# 2. 西側作戰簡報室 (-17..-6, 30..44)
+	hz._add_omni(lights, Vector3(-11.5, 3.1, 37.0), Color(0.95, 0.96, 0.88), 1.25, 12.0, false, false)
+	hz._add_box(geo, Vector3(2.2, 0.78, 5.2), Vector3(-11.5, 0.39, 37.0), mat_dark, true)
+	hz._add_box(geo, Vector3(0.12, 1.8, 4.4), Vector3(-16.75, 1.8, 37.0), mat_yellow, false) # 牆上戰術地圖看板
+	for cz in [35.2, 37.0, 38.8]:
+		hz._spawn_model(props, MODEL_DIR + "office_chair.glb", "BriefChairL", Vector3(-13.2, 0.0, cz), 90.0, Vector3(0.6, 0.9, 0.6))
+		hz._spawn_model(props, MODEL_DIR + "office_chair.glb", "BriefChairR", Vector3(-9.8, 0.0, cz), -90.0, Vector3(0.6, 0.9, 0.6))
+	hz._add_note_prop(props, "AlphaBriefNote", Vector3(-11.5, 0.80, 37.0),
+		"查看簡報桌上的宜居地帶探索簡報", "M.E.G. 簡報：六大區段威脅評估",
+		"【近期探索重點】\n\n"
+		+ "• 天鷹段／躍金段：穩定，適合新人搜集板條箱與以物易物。\n"
+		+ "• 哥特段：希波克拉底醫療隊駐紮，西側通路已打通。\n"
+		+ "• 花園段（砼苑）：極度危險，嚴禁駐留超過一小時。"
+	)
+
+	# 3. 東側物資補給庫 (6..17, 30..44)
+	hz._add_omni(lights, Vector3(11.5, 3.1, 37.0), Color(0.92, 0.94, 0.96), 1.25, 12.0, false, false)
+	for sz in [32.5, 41.5]:
+		hz._spawn_model(props, PROP_DIR + "shelf_small.glb", "AlphaSupplyShelf", Vector3(11.5, 0.0, sz), 0.0, Vector3(1.2, 1.8, 0.5))
+	hz._spawn_model(props, PROP_DIR + "pallet.glb", "AlphaSupplyPallet", Vector3(14.5, 0.0, 37.0), 0.0, Vector3(1.2, 0.18, 1.0))
+	hz._spawn_model(props, PROP_DIR + "box_closed.glb", "AlphaSupplyCrate", Vector3(14.5, 0.18, 37.0), 10.0, Vector3(0.7, 0.7, 0.7))
+	hz._spawn_model(props, PROP_DIR + "barrel.glb", "AlphaSupplyBarrel", Vector3(15.2, 0.0, 33.0), 0.0, Vector3(0.6, 0.9, 0.6))
+	hz._spawn_model(props, PROP_DIR + "fridge.glb", "AlphaSupplyFridge", Vector3(15.8, 0.0, 41.8), -90.0, Vector3(0.8, 1.7, 0.8))
+
+	# 4. 西南駐員宿舍區 (-17..0, 44..58)
+	hz._add_omni(lights, Vector3(-8.5, 3.1, 51.0), Color(1.0, 0.84, 0.62), 1.15, 13.0, false, false)
+	for bx in [-14.0, -9.5, -5.0]:
+		hz._spawn_model(props, PROP_DIR + "armchair.glb", "AlphaDormBed", Vector3(bx, 0.0, 55.2), 180.0, Vector3(1.6, 1.0, 1.5))
+		hz._spawn_model(props, MODEL_DIR + "filing_cabinet.glb", "AlphaDormLocker", Vector3(bx + 1.2, 0.0, 57.0), 180.0, Vector3(0.6, 1.4, 0.7))
+	hz._spawn_model(props, PROP_DIR + "floor_lamp.glb", "AlphaDormLamp", Vector3(-16.0, 0.0, 56.5), 0.0, Vector3(0.4, 1.6, 0.4))
+	hz._spawn_model(props, PROP_DIR + "coffee_machine.glb", "AlphaDormCoffee", Vector3(-2.0, 0.0, 56.8), 180.0, Vector3(0.35, 0.4, 0.35))
+
+	# 5. 東南裝備整備與通訊室 (0..17, 44..58)
+	hz._add_omni(lights, Vector3(8.5, 3.1, 51.0), Color(0.82, 0.94, 1.0), 1.2, 13.0, false, false)
+	for rx in [4.5, 8.0, 11.5]:
+		hz._add_box(geo, Vector3(1.1, 2.3, 1.0), Vector3(rx, 1.15, 56.6), mat_dark, true)
+	hz._spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "AlphaCommsDesk", Vector3(14.5, 0.0, 51.0), -90.0, Vector3(1.5, 0.78, 0.8))
+	hz._spawn_model(props, PROP_DIR + "computer_screen.glb", "AlphaCommsScreen", Vector3(14.5, 0.78, 51.0), -90.0, Vector3(0.5, 0.45, 0.4))
+	hz._spawn_model(props, PROP_DIR + "ladder.glb", "AlphaCommsLadder", Vector3(16.2, 0.0, 46.5), -90.0, Vector3(0.6, 2.2, 0.4))

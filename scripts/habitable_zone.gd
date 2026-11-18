@@ -458,27 +458,8 @@ func _build_south_ramp(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void
 	_south_door_light.omni_range = 7.5
 	lights.add_child(_south_door_light)
 
-	# 捲門後方：M.E.G. Alpha 基地前哨 (x: -5..5, z: 30..39)
-	_add_box(geo, Vector3(10.0, 0.2, 9.0), Vector3(0.0, -0.1, 34.5), MAT_HALL_FLOOR, true)
-	_add_box(geo, Vector3(10.0, 0.2, 9.0), Vector3(0.0, CEIL_H + 0.1, 34.5), _mat_concrete_dark, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 9.0), Vector3(-5.0, CEIL_H * 0.5, 34.5), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 9.0), Vector3(5.0, CEIL_H * 0.5, 34.5), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(10.0, CEIL_H, WALL_T), Vector3(0.0, CEIL_H * 0.5, 39.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(3.2, 0.5, 0.08), Vector3(0.0, 2.75, 38.75), _mat_hazard, false) # M.E.G. Alpha 基地淡黃色旗幟橫條
-	_add_omni(lights, Vector3(0.0, 3.1, 34.5), Color(1.0, 0.86, 0.62), 1.35, 11.0, false, false)
-
-	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "ShelterDesk", Vector3(0.0, 0.0, 37.2), 180.0, Vector3(1.5, 0.78, 0.8))
-	_spawn_model(props, PROP_DIR + "computer_screen.glb", "ShelterScreen", Vector3(0.3, 0.78, 37.2), 180.0, Vector3(0.5, 0.45, 0.4))
-	_add_wiki_terminal(props, "AlphaWikiTerminal", Vector3(0.3, 1.0, 37.2), Vector3(0.65, 0.65, 0.65), "使用 Alpha 基地終端機查閱檔案庫")
-	_spawn_model(props, PROP_DIR + "armchair.glb", "ShelterCouch", Vector3(-3.3, 0.0, 34.5), 90.0, Vector3(1.7, 1.0, 1.6))
-	_spawn_model(props, PROP_DIR + "shelf_small.glb", "ShelterShelf", Vector3(3.8, 0.0, 35.0), -90.0, Vector3(1.2, 1.8, 0.5))
-	_add_note_prop(props, "ShelterLogNote", Vector3(-0.3, 0.80, 37.2),
-		"閱讀 M.E.G. Alpha 基地執勤日誌", "M.E.G. Alpha 基地（天鷹段）",
-		"【歡迎來到：探險者總署 Alpha 基地前哨】\n\n"
-		+ "這裡是剛從「黃色廳房／閾界」切入宜居地帶的流浪者首個庇護據點。\n"
-		+ "若在天鷹段看見穿著淡黃色外套、佩帶雄鷹徽章的 4～5 人巡邏隊，可放心向他們求助。\n\n"
-		+ "• 往東下斜坡可前往板條箱最豐富的「躍金段」與 B.N.T.G. 商人之家。"
-	)
+	# 捲門後方：M.E.G. Alpha 主基地（5 區複合建築，x: -17..17, z: 30..58）
+	HabitableExpansions.build_alpha_base(self, geo, lights, props)
 
 
 func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
