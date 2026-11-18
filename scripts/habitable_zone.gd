@@ -11,6 +11,7 @@ const MAT_DARK_BRICK := preload("res://materials/mat_dark_brick.tres")
 const MAT_VENT_GRILL := preload("res://materials/mat_vent_grill.tres")
 const MAT_FLUORESCENT := preload("res://materials/mat_fluorescent.tres")
 const INTERACT_SCRIPT := preload("res://scripts/interactable_prop.gd")
+const HabitableExpansions := preload("res://scripts/habitable_expansions.gd")
 
 const PROP_DIR := "res://assets/models/props/"
 const MODEL_DIR := "res://assets/models/"
@@ -204,6 +205,9 @@ func _build_habitable_zone() -> void:
 
 	# 13. 傳說段 (x: 78..96, z: 10..28)
 	_build_lore_district(geo, lights, props)
+
+	# 14. 擴建各區段至 5 個以上連通房間／子區段
+	HabitableExpansions.build_all(self, geo, lights, props)
 
 
 func _init_local_materials() -> void:
@@ -402,11 +406,12 @@ func _build_north_corridor(geo: StaticBody3D, lights: Node3D, props: Node3D) -> 
 
 
 func _build_south_ramp(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 南側積水車道區 (x: -8..8, z: 20..30)
+	# 南側積水車道區 (x: -8..8, z: 20..30)，西牆 z:23.4..26.6 留門洞接哥特段環狀通道
 	_add_box(geo, Vector3(16.0, 0.2, 10.0), Vector3(0.0, -0.1, 25.0), MAT_HALL_FLOOR, true)
 	_add_puddle(geo, Vector3(0.0, 0.015, 25.0), Vector2(14.5, 9.0))
 	_add_box(geo, Vector3(16.0, 0.2, 10.0), Vector3(0.0, CEIL_H + 0.1, 25.0), _mat_concrete_dark, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 10.0), Vector3(-8.0, CEIL_H * 0.5, 25.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 3.4), Vector3(-8.0, CEIL_H * 0.5, 21.7), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 3.4), Vector3(-8.0, CEIL_H * 0.5, 28.3), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 10.0), Vector3(8.0, CEIL_H * 0.5, 25.0), MAT_HALL_WALL, true)
 
 	# 南牆 (z = 30) 中央留 3.6m 電動捲門開口
@@ -1034,16 +1039,16 @@ func _build_the_paths(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	# 小徑 (The Paths)：白水泥窄走廊＋斜靠木板＋盡頭黑雙門＋米色雙椅小房間 (對照 Wikidot 原圖)
 	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, -0.1, -27.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, 2.9, -27.0), _mat_paint_white, true)
-	_add_box(geo, Vector3(WALL_T, 2.8, 10.0), Vector3(-32.0, 1.4, -27.0), _mat_paint_white, true)
+	_add_box(geo, Vector3(WALL_T, 2.8, 3.5), Vector3(-32.0, 1.4, -23.75), _mat_paint_white, true)
+	_add_box(geo, Vector3(WALL_T, 2.8, 3.5), Vector3(-32.0, 1.4, -30.25), _mat_paint_white, true) # z:-28.5..-25.5 留門洞往西延伸
 	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -32.0), _mat_paint_white, true)
 	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -22.0), _mat_paint_white, true)
 
-	# 走廊白牆與盡頭黑色雙開門 (x = -31.7)
+	# 走廊白牆
 	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-14.0, 1.4, -28.4), _mat_paint_white, true)
 	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-26.5, 1.4, -28.4), _mat_paint_white, true)
 	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-15.5, 1.4, -25.6), _mat_paint_white, true)
 	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-28.0, 1.4, -25.6), _mat_paint_white, true)
-	_add_box(geo, Vector3(0.15, 2.3, 1.8), Vector3(-31.75, 1.15, -27.0), _mat_concrete_dark, true)
 	# 斜靠在走廊右牆的木板（對照 ref_59.jpg）
 	_add_rotated_box(geo, Vector3(1.5, 2.1, 0.12), Vector3(-22.5, 1.0, -28.05), Vector3(-0.22, 0.0, 0.0), _mat_hazard, true)
 
@@ -1094,9 +1099,14 @@ func _build_gothic_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 	var gh := 4.8
 	_add_box(geo, Vector3(24.0, 0.2, 18.0), Vector3(-36.0, -0.1, 11.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(24.0, 0.2, 18.0), Vector3(-36.0, gh + 0.1, 11.0), _mat_paint_white, true)
-	_add_box(geo, Vector3(WALL_T, gh, 18.0), Vector3(-48.0, gh * 0.5, 11.0), _mat_paint_white, true)
+	# 西牆 x=-48 于 z:8.5..13.5 留 5m 開口往拱柱長廊
+	_add_box(geo, Vector3(WALL_T, gh, 6.5), Vector3(-48.0, gh * 0.5, 5.25), _mat_paint_white, true)
+	_add_box(geo, Vector3(WALL_T, gh, 6.5), Vector3(-48.0, gh * 0.5, 16.75), _mat_paint_white, true)
 	_add_box(geo, Vector3(24.0, gh, WALL_T), Vector3(-36.0, gh * 0.5, 2.0), _mat_paint_white, true)
-	_add_box(geo, Vector3(24.0, gh, WALL_T), Vector3(-36.0, gh * 0.5, 20.0), _mat_paint_white, true)
+	# 南牆 z=20 留兩處開口：x:-44..-38 往隔離病房、x:-30..-26 往醫療庫房
+	_add_box(geo, Vector3(4.0, gh, WALL_T), Vector3(-46.0, gh * 0.5, 20.0), _mat_paint_white, true)
+	_add_box(geo, Vector3(8.0, gh, WALL_T), Vector3(-34.0, gh * 0.5, 20.0), _mat_paint_white, true)
+	_add_box(geo, Vector3(2.0, gh, WALL_T), Vector3(-25.0, gh * 0.5, 20.0), _mat_paint_white, true)
 
 	# 雙排圓柱與尖拱斜樑
 	for cx in [-42.0, -35.0, -28.0]:
@@ -1173,7 +1183,9 @@ func _build_ouroboros_district(geo: StaticBody3D, lights: Node3D, props: Node3D)
 	_add_box(geo, Vector3(18.0, 0.2, 18.0), Vector3(19.0, oh + 0.1, -29.0), _mat_concrete_dark, true)
 	_add_box(geo, Vector3(WALL_T, oh, 18.0), Vector3(10.0, oh * 0.5, -29.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, oh, 18.0), Vector3(28.0, oh * 0.5, -29.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(18.0, oh, WALL_T), Vector3(19.0, oh * 0.5, -38.0), MAT_HALL_WALL, true)
+	# 北牆 z=-38 于 x:16.5..21.5 留 5m 開口往北側未完工長廊
+	_add_box(geo, Vector3(6.5, oh, WALL_T), Vector3(13.25, oh * 0.5, -38.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(6.5, oh, WALL_T), Vector3(24.75, oh * 0.5, -38.0), MAT_HALL_WALL, true)
 
 	# 雙層鋼管鷹架與未完成磚牆
 	_add_box(geo, Vector3(6.5, 1.35, 0.45), Vector3(20.0, 0.675, -28.0), MAT_DARK_BRICK, true)
@@ -1246,8 +1258,12 @@ func _build_garden_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(58.0, by - 0.1, -54.0), mat_moss, true)
 	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(58.0, by + gh + 0.1, -54.0), _mat_concrete_dark, true)
 	_add_box(geo, Vector3(WALL_T, gh, 20.0), Vector3(46.0, by + gh * 0.5, -54.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, gh, 20.0), Vector3(70.0, by + gh * 0.5, -54.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(24.0, gh, WALL_T), Vector3(58.0, by + gh * 0.5, -64.0), MAT_HALL_WALL, true)
+	# 東牆 x=70 于 z:-56..-50 留 6m 開口往被植物吞沒的車庫殘骸
+	_add_box(geo, Vector3(WALL_T, gh, 8.0), Vector3(70.0, by + gh * 0.5, -48.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, gh, 8.0), Vector3(70.0, by + gh * 0.5, -60.0), MAT_HALL_WALL, true)
+	# 北牆 z=-64 于 x:55.5..60.5 留 5m 開口往溫室長廊
+	_add_box(geo, Vector3(9.5, gh, WALL_T), Vector3(50.75, by + gh * 0.5, -64.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(9.5, gh, WALL_T), Vector3(65.25, by + gh * 0.5, -64.0), MAT_HALL_WALL, true)
 
 	# 中央碎裂苔蘚水池
 	_add_box(geo, Vector3(5.6, 0.35, 0.35), Vector3(58.0, by + 0.175, -51.2), _mat_concrete_dark, true)
@@ -1388,7 +1404,9 @@ func _build_lore_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> v
 	_add_box(geo, Vector3(10.0, 0.2, 14.0), Vector3(101.0, by + 3.6, 19.0), mat_dark_wood, true)
 	_add_box(geo, Vector3(WALL_T, 3.6, 14.0), Vector3(106.0, by + 1.8, 19.0), mat_crimson_wood, true)
 	_add_box(geo, Vector3(10.0, 3.6, WALL_T), Vector3(101.0, by + 1.8, 12.0), mat_crimson_wood, true)
-	_add_box(geo, Vector3(10.0, 3.6, WALL_T), Vector3(101.0, by + 1.8, 26.0), mat_crimson_wood, true)
+	# 南牆 z=26 于 x:99..103 留 4m 開口往古老藏經／檔案閣
+	_add_box(geo, Vector3(3.0, 3.6, WALL_T), Vector3(97.5, by + 1.8, 26.0), mat_crimson_wood, true)
+	_add_box(geo, Vector3(3.0, 3.6, WALL_T), Vector3(104.5, by + 1.8, 26.0), mat_crimson_wood, true)
 	_add_omni(lights, Vector3(101.0, by + 3.1, 19.0), Color(1.0, 0.78, 0.45), 1.25, 11.0, false, false)
 
 	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "LoreStudyDesk", Vector3(104.2, by, 19.0), -90.0, Vector3(1.5, 0.78, 0.8))
@@ -1409,7 +1427,9 @@ func _build_lore_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> v
 	_add_box(geo, Vector3(14.0, 0.2, 10.0), Vector3(87.0, by + 3.8, 33.0), _mat_concrete_dark, true)
 	_add_box(geo, Vector3(WALL_T, 3.8, 10.0), Vector3(80.0, by + 1.9, 33.0), mat_crimson_wood, true)
 	_add_box(geo, Vector3(WALL_T, 3.8, 10.0), Vector3(94.0, by + 1.9, 33.0), mat_crimson_wood, true)
-	_add_box(geo, Vector3(14.0, 3.8, WALL_T), Vector3(87.0, by + 1.9, 38.0), _mat_concrete_dark, true)
+	# 南牆 z=38 于 x:85..89 留 4m 開口往霓虹電纜總匯機房
+	_add_box(geo, Vector3(5.0, 3.8, WALL_T), Vector3(82.5, by + 1.9, 38.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(5.0, 3.8, WALL_T), Vector3(91.5, by + 1.9, 38.0), _mat_concrete_dark, true)
 
 	# 成排彩色電纜橫跨走廊上方與牆邊
 	_add_box(geo, Vector3(13.2, 0.07, 0.07), Vector3(87.0, by + 3.2, 31.0), mat_neon_cyan, false)
