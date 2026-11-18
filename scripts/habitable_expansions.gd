@@ -14,6 +14,7 @@ static func build_all(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node
 	_expand_garden(hz, geo, lights, props)
 	_expand_paths(hz, geo, lights, props)
 	_expand_lore(hz, geo, lights, props)
+	build_traders_keep(hz, geo, lights, props)
 
 
 static func _expand_gothic(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
@@ -334,3 +335,72 @@ static func build_alpha_base(hz: Node3D, geo: StaticBody3D, lights: Node3D, prop
 	hz._spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "AlphaCommsDesk", Vector3(14.5, 0.0, 51.0), -90.0, Vector3(1.5, 0.78, 0.8))
 	hz._spawn_model(props, PROP_DIR + "computer_screen.glb", "AlphaCommsScreen", Vector3(14.5, 0.78, 51.0), -90.0, Vector3(0.5, 0.45, 0.4))
 	hz._spawn_model(props, PROP_DIR + "ladder.glb", "AlphaCommsLadder", Vector3(16.2, 0.0, 46.5), -90.0, Vector3(0.6, 2.2, 0.4))
+
+
+
+static func build_traders_keep(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# B.N.T.G. 商人之家 (x: 22..40, z: 8..34, y=-4.0，468 m²，含原櫃檯共 5 個連通區)
+	var by := -4.0
+	var th := 3.8
+	var mat_floor: Material = hz.MAT_HALL_FLOOR
+	var mat_wall: Material = hz.MAT_HALL_WALL
+	var mat_dark: Material = hz._mat_concrete_dark
+	var mat_amber: Material = hz._mat_hazard
+
+	# 總地板與天花板 (18m x 26m)
+	hz._add_box(geo, Vector3(18.0, 0.2, 26.0), Vector3(31.0, by - 0.1, 21.0), mat_floor, true)
+	hz._add_box(geo, Vector3(18.0, 0.2, 26.0), Vector3(31.0, by + th + 0.1, 21.0), mat_dark, true)
+	# 外圍封閉牆（東牆 x=40 留 z:11..15 門洞，其餘封閉）
+	hz._add_box(geo, Vector3(18.0, th, WALL_T), Vector3(31.0, by + th * 0.5, 8.0), mat_wall, true)
+	hz._add_box(geo, Vector3(18.0, th, WALL_T), Vector3(31.0, by + th * 0.5, 34.0), mat_wall, true)
+	hz._add_box(geo, Vector3(WALL_T, th, 26.0), Vector3(22.0, by + th * 0.5, 21.0), mat_wall, true)
+	hz._add_box(geo, Vector3(WALL_T, th, 16.0), Vector3(40.0, by + th * 0.5, 26.0), mat_wall, true)
+
+	# 內部隔間牆：
+	# 1) 縱牆 x = 28 (z: 8..34，於 z:12..16 與 z:24..28 留門洞)
+	hz._add_box(geo, Vector3(0.28, th, 4.0), Vector3(28.0, by + th * 0.5, 10.0), mat_wall, true)
+	hz._add_box(geo, Vector3(0.28, th, 8.0), Vector3(28.0, by + th * 0.5, 20.0), mat_wall, true)
+	hz._add_box(geo, Vector3(0.28, th, 6.0), Vector3(28.0, by + th * 0.5, 31.0), mat_wall, true)
+	# 2) 橫牆 z = 22 (x: 28..40，於 x:32..36 留門洞)
+	hz._add_box(geo, Vector3(4.0, th, 0.28), Vector3(30.0, by + th * 0.5, 22.0), mat_wall, true)
+	hz._add_box(geo, Vector3(4.0, th, 0.28), Vector3(38.0, by + th * 0.5, 22.0), mat_wall, true)
+	# 3) 西側橫牆 z = 20 (x: 22..28，封閉分開珍品室與休息室)
+	hz._add_box(geo, Vector3(6.0, th, 0.28), Vector3(25.0, by + th * 0.5, 20.0), mat_wall, true)
+
+	# 區段1：中央市集貨攤大廳 (x: 28..40, z: 8..22)
+	hz._add_omni(lights, Vector3(34.0, by + 3.2, 15.0), Color(1.0, 0.80, 0.45), 1.45, 13.0, false, false)
+	for sz in [10.2, 19.6]:
+		hz._add_box(geo, Vector3(3.8, 0.95, 0.9), Vector3(34.0, by + 0.475, sz), mat_dark, true)
+		hz._add_box(geo, Vector3(3.9, 0.16, 0.95), Vector3(34.0, by + 1.0, sz), mat_amber, false)
+	hz._spawn_model(props, PROP_DIR + "box_closed.glb", "MarketCrate_1", Vector3(32.5, by + 1.08, 10.2), 10.0, Vector3(0.5, 0.5, 0.5))
+	hz._spawn_model(props, PROP_DIR + "cardboard_boxes.glb", "MarketBoxes_1", Vector3(35.5, by + 1.08, 19.6), -15.0, Vector3(0.6, 0.6, 0.6))
+	hz._spawn_model(props, PROP_DIR + "barrel.glb", "MarketBarrel_1", Vector3(38.5, by, 10.0), 0.0, Vector3(0.6, 0.9, 0.6))
+
+	# 區段2：北側珍品與物資陳列室 (x: 22..28, z: 8..20)
+	hz._add_omni(lights, Vector3(25.0, by + 3.2, 14.0), Color(0.96, 0.88, 0.62), 1.15, 10.0, false, false)
+	hz._spawn_model(props, PROP_DIR + "shelf_small.glb", "TraderShelf_1", Vector3(23.5, by, 10.0), 90.0, Vector3(1.2, 1.8, 0.5))
+	hz._spawn_model(props, PROP_DIR + "shelf_small.glb", "TraderShelf_2", Vector3(23.5, by, 17.5), 90.0, Vector3(1.2, 1.8, 0.5))
+	hz._spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "TraderDesk", Vector3(25.0, by, 18.8), 180.0, Vector3(1.5, 0.78, 0.8))
+	hz._spawn_model(props, PROP_DIR + "computer_screen.glb", "TraderScreen", Vector3(25.0, by + 0.78, 18.8), 180.0, Vector3(0.5, 0.45, 0.4))
+	hz._add_note_prop(props, "TraderPriceNote", Vector3(24.5, by + 0.80, 18.8),
+		"查看商人之家的以物易物價目表", "B.N.T.G. 交易價目表",
+		"【不結盟貿易集團 — 商人之家價目表】\n\n"
+		+ "• 杏仁水 1 瓶 ＝ 手電筒電池 1 組 或 密封罐頭 2 罐\n"
+		+ "• 露營爐具 1 座 ＝ 乾淨醫療繃帶 3 捲\n"
+		+ "• 過夜庇護床位 ＝ 任兩件完好物資\n\n"
+		+ "「不接受口頭賒帳，貨銀兩訖。」"
+	)
+
+	# 區段3：南側商人金庫／儲藏庫 (x: 28..40, z: 22..34)
+	hz._add_omni(lights, Vector3(34.0, by + 3.2, 28.0), Color(0.92, 0.84, 0.58), 1.2, 11.0, false, false)
+	for px in [30.5, 37.5]:
+		hz._spawn_model(props, PROP_DIR + "pallet.glb", "VaultPallet", Vector3(px, by, 31.5), 0.0, Vector3(1.2, 0.18, 1.0))
+		hz._spawn_model(props, PROP_DIR + "box_closed.glb", "VaultCrate", Vector3(px, by + 0.18, 31.5), 12.0, Vector3(0.7, 0.7, 0.7))
+	hz._spawn_model(props, PROP_DIR + "fridge.glb", "VaultFridge", Vector3(38.8, by, 24.5), -90.0, Vector3(0.8, 1.7, 0.8))
+	hz._spawn_model(props, PROP_DIR + "barrel.glb", "VaultBarrel", Vector3(29.5, by, 24.5), 0.0, Vector3(0.6, 0.9, 0.6))
+
+	# 區段4：西南商隊休息室 (x: 22..28, z: 20..34)
+	hz._add_omni(lights, Vector3(25.0, by + 3.1, 27.0), Color(1.0, 0.78, 0.48), 1.15, 10.5, false, false)
+	hz._spawn_model(props, PROP_DIR + "armchair.glb", "TraderCouch", Vector3(24.0, by, 31.5), 180.0, Vector3(1.6, 1.0, 1.5))
+	hz._spawn_model(props, PROP_DIR + "floor_lamp.glb", "TraderLamp", Vector3(22.8, by, 32.8), 0.0, Vector3(0.4, 1.6, 0.4))
+	hz._spawn_model(props, PROP_DIR + "coffee_machine.glb", "TraderCoffee", Vector3(26.8, by, 21.2), 0.0, Vector3(0.35, 0.4, 0.35))

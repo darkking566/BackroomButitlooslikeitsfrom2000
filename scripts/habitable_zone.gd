@@ -483,9 +483,11 @@ func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> vo
 	var b2_h := 6.0
 	_add_box(geo, Vector3(36.0, 0.2, 36.0), Vector3(58.0, by - 0.1, 0.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(36.0, 0.2, 36.0), Vector3(58.0, by + b2_h + 0.1, 0.0), _mat_concrete_dark, true)
-	# B2 四周牆壁（西牆 x=40 中間 z:-3..3 留斜坡開口）
+	# B2 四周牆壁（西牆 x=40 留 z:-3..3 往斜坡、z:11..15 往 B.N.T.G. 商人之家）
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(40.0, by + b2_h * 0.5, -10.5), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(40.0, by + b2_h * 0.5, 10.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, b2_h, 8.0), Vector3(40.0, by + b2_h * 0.5, 7.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, b2_h, 3.0), Vector3(40.0, by + b2_h * 0.5, 16.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, 2.8, 4.0), Vector3(40.0, by + b2_h - 1.4, 13.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, 1.8, 6.0), Vector3(40.0, by + b2_h - 0.9, 0.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(76.0, by + b2_h * 0.5, -10.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, b2_h, 15.0), Vector3(76.0, by + b2_h * 0.5, 10.5), MAT_HALL_WALL, true)
