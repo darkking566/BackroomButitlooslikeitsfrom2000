@@ -17,6 +17,7 @@ const HabitableStructures := preload("res://scripts/habitable_structures.gd")
 const PROP_DIR := "res://assets/models/props/"
 const MODEL_DIR := "res://assets/models/"
 const AQUILA_PS2_WING_PATH := "res://assets/models/aquila_ps2_wing.glb"
+const NORTH_CORRIDOR_PS2_PATH := "res://assets/models/north_corridor_ps2.glb"
 
 const CEIL_H := 3.6
 const WALL_T := 0.4
@@ -388,32 +389,74 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 
 
 func _build_north_corridor(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 北側管線倉庫走廊 (x: -10..10, z: -34..-20)
-	_add_box(geo, Vector3(20.0, 0.2, 14.0), Vector3(0.0, -0.1, -27.0), MAT_HALL_FLOOR, true)
-	_add_box(geo, Vector3(20.0, 0.2, 14.0), Vector3(0.0, CEIL_H + 0.1, -27.0), _mat_concrete_dark, true)
-	# 西牆 (x = -10.0)，於 z: -28.3..-25.7 留 2.6m 開口往「小徑 (The Paths)」
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 5.7), Vector3(-10.0, CEIL_H * 0.5, -22.85), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 5.7), Vector3(-10.0, CEIL_H * 0.5, -31.15), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, 1.0, 2.6), Vector3(-10.0, CEIL_H - 0.5, -27.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 14.0), Vector3(10.0, CEIL_H * 0.5, -27.0), MAT_HALL_WALL, true)
-	# 北牆 (z = -34)，x: -3..1 留 4m 開口往北側泵浦控制室
-	_add_box(geo, Vector3(7.0, CEIL_H, WALL_T), Vector3(-6.5, CEIL_H * 0.5, -34.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(9.0, CEIL_H, WALL_T), Vector3(5.5, CEIL_H * 0.5, -34.0), MAT_HALL_WALL, true)
+	# 北側管線走廊 (x: -10..10, z: -34..-20)：改用 Blender 低面數 PS2 結構模組，底層只留無形地板碰撞箱以防止 Z-fighting
+	var nc_floor_col := CollisionShape3D.new()
+	var nc_floor_shape := BoxShape3D.new()
+	nc_floor_shape.size = Vector3(20.0, 0.2, 14.0)
+	nc_floor_col.shape = nc_floor_shape
+	nc_floor_col.position = Vector3(0.0, -0.1, -27.0)
+	geo.add_child(nc_floor_col)
 
-	_add_pipe(geo, Vector3(-9.5, 3.1, -25.0), Vector3(9.5, 3.1, -25.0), 0.14)
-	_add_pipe(geo, Vector3(-9.5, 2.9, -29.0), Vector3(9.5, 2.9, -29.0), 0.11)
+	if ResourceLoader.exists(NORTH_CORRIDOR_PS2_PATH):
+		var nc_packed := load(NORTH_CORRIDOR_PS2_PATH) as PackedScene
+		if nc_packed:
+			var nc := nc_packed.instantiate()
+			nc.name = "NorthCorridorPS2"
+			nc.position = Vector3(0.0, 0.0, -20.0)
+			add_child(nc)
+			_apply_ps2_nearest_materials(nc)
 
-	_add_omni(lights, Vector3(0.0, CEIL_H - 0.35, -27.0), Color(0.78, 0.88, 0.96), 1.0, 12.0, false, true)
+	# 對應 Blender 牆體／柱體的精確碰撞箱（Godot Z = -20.0 - Blender Y）
+	var col_boxes := [
+		[Vector3(0.30, 3.6, 6.10), Vector3(-3.85, 1.8, -23.05)],   # 左牆南段
+		[Vector3(0.30, 3.6, 5.70), Vector3(-3.85, 1.8, -31.15)],   # 左牆北段（中間 z:-28.3..-26.1 留通往「小徑」門洞）
+		[Vector3(0.30, 1.2, 2.20), Vector3(-3.85, 3.0, -27.20)],   # 小徑門洞上方過樑
+		[Vector3(6.30, 2.9, 0.24), Vector3(-6.85, 1.45, -25.75)],  # 小徑連通道南牆
+		[Vector3(6.30, 2.9, 0.24), Vector3(-6.85, 1.45, -28.25)],  # 小徑連通道北牆
+		[Vector3(1.40, 3.6, 3.40), Vector3(2.35, 1.8, -24.90)],    # 右側前景滲水大水泥墩
+		[Vector3(0.30, 3.6, 7.80), Vector3(4.30, 1.8, -30.10)],    # 右側退縮後段牆
+		[Vector3(0.30, 3.6, 14.0), Vector3(9.85, 1.8, -27.0)],     # 東側外牆
+		[Vector3(7.00, 3.6, 0.30), Vector3(-6.50, 1.8, -33.85)],   # 北牆西段
+		[Vector3(9.00, 3.6, 0.30), Vector3(5.50, 1.8, -33.85)],    # 北牆東段（x:-3..1 留開口往泵浦室）
+	]
+	for cb in col_boxes:
+		var wall_col := CollisionShape3D.new()
+		var wall_shape := BoxShape3D.new()
+		wall_shape.size = cb[0]
+		wall_col.shape = wall_shape
+		wall_col.position = cb[1]
+		geo.add_child(wall_col)
+
+	# 沿著成排白日光燈條與右側分岔區補上冷白柔光（不開即時陰影，維持 PS2 效能）
+	for lp in [
+		Vector3(-1.05, 2.72, -22.95),
+		Vector3(-1.05, 2.72, -24.75),
+		Vector3(-1.05, 2.72, -26.55),
+		Vector3(-1.05, 2.72, -28.35),
+		Vector3(-1.05, 2.72, -30.15),
+		Vector3(-1.05, 2.72, -31.95),
+		Vector3(4.75, 2.72, -23.85),
+		Vector3(7.40, 2.85, -29.50),
+	]:
+		_add_omni(lights, lp, Color(0.86, 0.92, 0.98), 0.92, 9.5, false, is_equal_approx(lp.z, -28.35))
+	_add_omni(lights, Vector3(-6.80, 2.50, -27.00), Color(0.84, 0.90, 0.96), 0.65, 7.5, false, false)
+
+	# 專屬反射探針，讓平滑水泥地坪能倒映整排白日光燈
+	var nc_probe := ReflectionProbe.new()
+	nc_probe.position = Vector3(0.0, CEIL_H * 0.5, -27.0)
+	nc_probe.size = Vector3(20.0, CEIL_H + 0.5, 14.0)
+	nc_probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	add_child(nc_probe)
 
 	_spawn_model(props, MODEL_DIR + "filing_cabinet.glb", "NorthCabinet_1", Vector3(8.8, 0.0, -32.2), -90.0, Vector3(0.6, 1.4, 0.7))
-	_spawn_model(props, MODEL_DIR + "breaker_box.glb", "NorthBreakerBox", Vector3(2.8, 1.35, -33.6), 0.0, Vector3(0.5, 0.7, 0.35))
-	_north_lamp_mat = _add_status_lamp(props, Vector3(2.8, 2.05, -33.55), false)
-	_north_breaker_body = _add_breaker_switch(props, "NorthBreakerInteract", Vector3(2.8, 1.35, -33.4), Vector3(0.8, 1.2, 0.7),
+	_spawn_model(props, MODEL_DIR + "breaker_box.glb", "NorthBreakerBox", Vector3(2.8, 1.35, -33.45), 0.0, Vector3(0.5, 0.7, 0.35))
+	_north_lamp_mat = _add_status_lamp(props, Vector3(2.8, 2.05, -33.40), false)
+	_north_breaker_body = _add_breaker_switch(props, "NorthBreakerInteract", Vector3(2.8, 1.35, -33.25), Vector3(0.8, 1.2, 0.7),
 		"啟動北區管線配電箱", "north"
 	)
-	_spawn_model(props, PROP_DIR + "fridge.glb", "NorthFridge", Vector3(-8.5, 0.0, -32.2), 90.0, Vector3(0.8, 1.7, 0.8))
-	_spawn_model(props, PROP_DIR + "box_closed.glb", "SupplyCrate", Vector3(-3.0, 0.0, -32.4), 12.0, Vector3(0.8, 0.8, 0.8))
-	_add_note_prop(props, "SupplyOutpostNote", Vector3(-3.0, 0.82, -32.4),
+	_spawn_model(props, PROP_DIR + "fridge.glb", "NorthFridge", Vector3(8.8, 0.0, -23.0), -90.0, Vector3(0.8, 1.7, 0.8))
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "SupplyCrate", Vector3(-2.9, 0.0, -32.4), 12.0, Vector3(0.8, 0.8, 0.8))
+	_add_note_prop(props, "SupplyOutpostNote", Vector3(-2.9, 0.82, -32.4),
 		"翻看補給箱上的物資清單", "流浪者補給紀錄",
 		"【物資清點：宜居地帶北側前哨】\n\n"
 		+ "• 杏仁水 x 6 瓶（已分裝）\n"
@@ -870,8 +913,8 @@ func _apply_ps2_nearest_materials(node: Node) -> void:
 					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
 					sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 					if mat.resource_name.contains("Floor"):
-						sm.metallic = 0.28
-						sm.metallic_specular = 0.88
+						sm.metallic = 0.28 if not mat.resource_name.contains("NC_") else 0.16
+						sm.metallic_specular = 0.88 if not mat.resource_name.contains("NC_") else 0.78
 					mi.set_surface_override_material(si, sm)
 	for child in node.get_children():
 		_apply_ps2_nearest_materials(child)

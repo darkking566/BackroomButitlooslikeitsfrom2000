@@ -414,15 +414,14 @@ static func _expand_north_pipe_and_restroom(hz: Node3D, geo: StaticBody3D, light
 	var mat_dark: Material = hz._mat_concrete_dark
 	var mat_pipe: Material = hz._mat_pipe
 
-	# 1. 充實 B1 北側管線走廊內部 (x: -10..10, z: -34..-20) ＋ 新增北側泵浦控制室 (x: -8..8, z: -46..-34)
-	# 走廊中央兩座大型水泵機組＋垂降管線，讓通道更有層次
-	for px in [-4.5, 4.5]:
-		hz._add_box(geo, Vector3(2.8, 0.3, 3.6), Vector3(px, 0.15, -27.0), mat_dark, true)
-		hz._add_box(geo, Vector3(2.0, 1.35, 2.6), Vector3(px, 0.95, -27.0), mat_pipe, true)
-		hz._add_box(geo, Vector3(0.35, 2.6, 0.35), Vector3(px, 2.3, -27.0), mat_pipe, false)
-	hz._add_puddle(geo, Vector3(0.0, 0.015, -27.0), Vector2(4.2, 4.5))
-	hz._spawn_model(props, PROP_DIR + "barrel.glb", "PipeBarrel_1", Vector3(8.5, 0.0, -23.0), 0.0, Vector3(0.6, 0.9, 0.6))
-	hz._spawn_model(props, PROP_DIR + "pallet.glb", "PipePallet_1", Vector3(-8.2, 0.0, -22.5), 15.0, Vector3(1.2, 0.18, 1.0))
+	# 1. 充實 B1 北側管線走廊東側機房區 (x: 4.5..9.5, z: -34..-20) ＋ 新增北側泵浦控制室 (x: -8..8, z: -46..-34)
+	# 將水泵機組置於東側分岔機房內，保留主通道對照參考照片的乾淨滲水長廊構圖
+	hz._add_box(geo, Vector3(2.4, 0.26, 3.2), Vector3(7.4, 0.13, -27.8), mat_dark, true)
+	hz._add_box(geo, Vector3(1.8, 1.30, 2.4), Vector3(7.4, 0.90, -27.8), mat_pipe, true)
+	hz._add_box(geo, Vector3(0.32, 2.3, 0.32), Vector3(7.4, 2.25, -27.8), mat_pipe, false)
+	hz._add_puddle(geo, Vector3(-0.35, 0.025, -23.1), Vector2(2.6, 2.8))
+	hz._spawn_model(props, PROP_DIR + "barrel.glb", "PipeBarrel_1", Vector3(8.5, 0.0, -25.2), 0.0, Vector3(0.6, 0.9, 0.6))
+	hz._spawn_model(props, PROP_DIR + "pallet.glb", "PipePallet_1", Vector3(6.8, 0.0, -21.8), 15.0, Vector3(1.2, 0.18, 1.0))
 
 	# 北側泵浦控制室 (x: -8..8, z: -46..-34)
 	hz._add_box(geo, Vector3(16.0, 0.2, 12.0), Vector3(0.0, -0.1, -40.0), mat_floor, true)
