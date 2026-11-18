@@ -6,7 +6,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "00_宜居地帶_概要與地標法.txt",
 		"size": "4.8kb",
 		"title": "「宜居地帶」概要與地標導航法",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_aquila.jpg",
 		"body": (
 			"【生存難度：等級 1】  安全．穩定．存在異常資源\n"
 			+ "恭喜你，流浪者！如果你正在閱讀本文，代表你已成功逃出「黃色廳房／閾界」。\n\n"
@@ -22,7 +22,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "01_區段_天鷹與Alpha基地.txt",
 		"size": "3.6kb",
 		"title": "區段：天鷹段 (Aquila) 與 Alpha 基地",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_aquila.jpg",
 		"body": (
 			"灰色牆面、混凝土地坪與巨型方柱，加上頭頂偶爾漏水的小管子——這便是最著名的「天鷹段」。\n"
 			+ "這裡更像是一座地下停車場而非倉庫（滴落的水並不適合直接飲用）。\n\n"
@@ -35,7 +35,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "02_區段_躍金與商人之家.txt",
 		"size": "3.4kb",
 		"title": "區段：躍金段 (Aurum) 與商人之家",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_aurum.jpg",
 		"body": (
 			"相較於天鷹段，躍金段的照明更充足、色彩較斑斕，外觀也更接近大型倉庫。\n"
 			+ "這裡堆放的板條箱數量遠超本層其他區域，是搜集瓶裝水、食物與工具的最佳地點。\n\n"
@@ -48,7 +48,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "03_區段_哥特與銜尾段.txt",
 		"size": "3.3kb",
 		"title": "區段：哥特段 (Gothic) 與銜尾段 (Ouroboros)",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_gothic.png",
 		"body": (
 			"【哥特段】\n"
 			+ "以彎曲的拱門與圓柱構造聞名。阿麗亞娜集團的「希波克拉底醫療團隊」駐紮於此，\n"
@@ -63,7 +63,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "04_區段_花園與傳說段.txt",
 		"size": "3.5kb",
 		"title": "區段：花園段 (砼苑) 與傳說段 (Lore)",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_garden.png",
 		"body": (
 			"【花園段／砼苑 — 極度危險】\n"
 			+ "切勿被其青翠欲滴的草木表象欺騙！花園段是宜居地帶少數不適宜人類生存的險地。\n"
@@ -77,7 +77,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "05_區域_小徑與門鎖禁忌.txt",
 		"size": "3.9kb",
 		"title": "次級區域：小徑 (The Paths) 與門鎖禁忌",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_paths.jpg",
 		"body": (
 			"從主過道兩側門後延伸出去的窄長走廊被稱為「小徑」，兩側佈滿帶門的房間。\n"
 			+ "偶爾能找到擺著床墊與舊家具的房間可供歇腳，但食物多半已變質，只建議食用密封瓶罐或罐頭。\n\n"
@@ -90,7 +90,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "06_現象_閃爍與板條箱.txt",
 		"size": "3.7kb",
 		"title": "異常現象：閃爍 (The Flicker) 與板條箱",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_flicker.png",
 		"body": (
 			"【閃爍事件】\n"
 			+ "伴隨類似電流脈衝的聲響，整個區域的燈光會不祥地閃爍並陷入徹底漆黑、萬籟俱寂。\n"
@@ -104,7 +104,7 @@ const ENTRIES: Array[Dictionary] = [
 		"file": "07_出入口_黃色廳房與深層.txt",
 		"size": "2.6kb",
 		"title": "出入口紀錄",
-		"image": "",
+		"image": "res://assets/textures/wiki/habitable_lore.webp",
 		"body": (
 			"【入口】從「黃色廳房／閾界」的閃爍牆壁切出，便會抵達宜居地帶的天鷹段。\n\n"
 			+ "【返回路徑】天鷹段西牆附近有一扇標著「閾界」的鐵門，推開即可折返。\n\n"

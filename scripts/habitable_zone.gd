@@ -1031,25 +1031,31 @@ func _build_b2_restroom(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 
 
 func _build_the_paths(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 小徑 (The Paths)：從北側管線走廊西牆延伸出去的窄走廊與休息房間 (x: -32..-10, z: -32..-22)
+	# 小徑 (The Paths)：白水泥窄走廊＋斜靠木板＋盡頭黑雙門＋米色雙椅小房間 (對照 Wikidot 原圖)
 	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, -0.1, -27.0), MAT_HALL_FLOOR, true)
-	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, 2.9, -27.0), _mat_concrete_dark, true)
-	# 外圍封閉牆
-	_add_box(geo, Vector3(WALL_T, 2.8, 10.0), Vector3(-32.0, 1.4, -27.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -32.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -22.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, 2.9, -27.0), _mat_paint_white, true)
+	_add_box(geo, Vector3(WALL_T, 2.8, 10.0), Vector3(-32.0, 1.4, -27.0), _mat_paint_white, true)
+	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -32.0), _mat_paint_white, true)
+	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -22.0), _mat_paint_white, true)
 
-	# 中央窄走廊兩側隔牆（走廊 z: -28.3..-25.7，北房 z: -32..-28.3，南房 z: -25.7..-22）
-	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-14.0, 1.4, -28.4), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-26.5, 1.4, -28.4), MAT_HALL_WALL, true) # x: -21..-18 留門洞進北房
-	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-15.5, 1.4, -25.6), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-28.0, 1.4, -25.6), MAT_HALL_WALL, true) # x: -24..-21 留門洞進南房
+	# 走廊白牆與盡頭黑色雙開門 (x = -31.7)
+	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-14.0, 1.4, -28.4), _mat_paint_white, true)
+	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-26.5, 1.4, -28.4), _mat_paint_white, true)
+	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-15.5, 1.4, -25.6), _mat_paint_white, true)
+	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-28.0, 1.4, -25.6), _mat_paint_white, true)
+	_add_box(geo, Vector3(0.15, 2.3, 1.8), Vector3(-31.75, 1.15, -27.0), _mat_concrete_dark, true)
+	# 斜靠在走廊右牆的木板（對照 ref_59.jpg）
+	_add_rotated_box(geo, Vector3(1.5, 2.1, 0.12), Vector3(-22.5, 1.0, -28.05), Vector3(-0.22, 0.0, 0.0), _mat_hazard, true)
 
-	_add_omni(lights, Vector3(-19.5, 2.45, -27.0), Color(0.84, 0.90, 0.96), 0.75, 10.0, false, true)
-	_add_omni(lights, Vector3(-27.0, 2.45, -27.0), Color(0.75, 0.85, 0.92), 0.65, 9.0, false, false)
+	for lx in [-14.0, -20.0, -26.0]:
+		_add_box(geo, Vector3(1.2, 0.05, 0.22), Vector3(lx, 2.76, -27.0), MAT_FLUORESCENT, false)
+	_add_omni(lights, Vector3(-19.5, 2.45, -27.0), Color(0.88, 0.94, 1.0), 1.05, 11.0, false, true)
+	_add_omni(lights, Vector3(-28.5, 2.45, -27.0), Color(0.88, 0.94, 1.0), 0.95, 10.0, false, false)
 
-	# 北房：破舊休息室（沙發床墊＋密封物資＋門鎖禁忌字條）
-	_spawn_model(props, PROP_DIR + "armchair.glb", "PathsMattress", Vector3(-24.0, 0.0, -30.5), 0.0, Vector3(1.7, 1.0, 1.6))
+	# 北房：對照 ref_60.png 兩張並排的米色舊座椅＋門鎖禁忌字條
+	_spawn_model(props, PROP_DIR + "armchair.glb", "PathsChair_1", Vector3(-23.0, 0.0, -30.5), 0.0, Vector3(1.4, 1.0, 1.3))
+	_spawn_model(props, PROP_DIR + "armchair.glb", "PathsChair_2", Vector3(-25.0, 0.0, -30.8), 0.0, Vector3(1.4, 1.0, 1.3))
+	_spawn_model(props, PROP_DIR + "bucket.glb", "PathsBucket", Vector3(-26.8, 0.0, -31.2), 0.0, Vector3(0.4, 0.5, 0.4))
 	_spawn_model(props, PROP_DIR + "box_closed.glb", "PathsCrate", Vector3(-16.0, 0.0, -30.8), 12.0, Vector3(0.7, 0.7, 0.7))
 	_add_note_prop(props, "PathsLockNote", Vector3(-16.0, 0.72, -30.8),
 		"閱讀板條箱上的「小徑生存守則」", "小徑與門鎖禁忌",
@@ -1112,6 +1118,17 @@ func _build_gothic_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 			cshape.shape = cs
 			cshape.position = Vector3(cx, gh * 0.5, cz)
 			geo.add_child(cshape)
+			# 喇叭口／蘑菇頭柱帽（還原 ref_55.png 哥特段地下車庫拱頂透視）
+			var cap_mi := MeshInstance3D.new()
+			var cap_m := CylinderMesh.new()
+			cap_m.top_radius = 1.75
+			cap_m.bottom_radius = 0.45
+			cap_m.height = 1.45
+			cap_m.radial_segments = 12
+			cap_mi.mesh = cap_m
+			cap_mi.position = Vector3(cx, gh - 0.72, cz)
+			cap_mi.material_override = _mat_paint_white
+			geo.add_child(cap_mi)
 		_add_box(geo, Vector3(0.7, 0.45, 9.0), Vector3(cx, gh - 0.25, 11.0), _mat_paint_white, false)
 		_add_rotated_box(geo, Vector3(0.5, 0.35, 5.2), Vector3(cx, gh - 1.15, 8.7), Vector3(0.32, 0.0, 0.0), _mat_paint_white, false)
 		_add_rotated_box(geo, Vector3(0.5, 0.35, 5.2), Vector3(cx, gh - 1.15, 13.3), Vector3(-0.32, 0.0, 0.0), _mat_paint_white, false)
@@ -1170,6 +1187,13 @@ func _build_ouroboros_district(geo: StaticBody3D, lights: Node3D, props: Node3D)
 	_add_box(geo, Vector3(6.5, 0.16, 0.16), Vector3(15.5, 0.85, -23.0), _mat_hazard, true)
 
 	# 5 個沉默的影子施工生物剪影（包含站上層鷹架的身影）
+	var mat_red_pipe := StandardMaterial3D.new()
+	mat_red_pipe.albedo_color = Color(0.58, 0.14, 0.12)
+	mat_red_pipe.roughness = 0.6
+	_add_box(geo, Vector3(17.0, 0.12, 0.12), Vector3(19.0, 3.65, -26.0), mat_red_pipe, false)
+	_add_box(geo, Vector3(17.0, 0.12, 0.12), Vector3(19.0, 3.65, -32.0), mat_red_pipe, false)
+	# 斜靠在未完工牆邊的黑色鐵圍欄（對照 ref_56.png）
+	_add_rotated_box(geo, Vector3(2.4, 1.5, 0.08), Vector3(22.8, 0.75, -27.55), Vector3(-0.18, 0.0, 0.0), _mat_concrete_dark, true)
 	var mat_shadow := StandardMaterial3D.new()
 	mat_shadow.albedo_color = Color(0.05, 0.05, 0.06)
 	mat_shadow.roughness = 0.98
@@ -1249,8 +1273,15 @@ func _build_garden_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 
 	_spawn_model(props, PROP_DIR + "box_closed.glb", "GardenLostCrate", Vector3(49.5, by, -61.5), 28.0, Vector3(0.7, 0.7, 0.7))
 	_spawn_model(props, PROP_DIR + "barrel.glb", "GardenBarrel", Vector3(48.5, by, -61.8), 0.0, Vector3(0.6, 0.9, 0.6))
-	_add_omni(lights, Vector3(58.0, by + gh - 0.4, -52.0), Color(0.32, 0.92, 0.48), 1.4, 14.5, false, false)
-	_add_omni(lights, Vector3(58.0, by + gh - 0.4, -60.0), Color(0.28, 0.85, 0.45), 1.2, 13.5, false, false)
+	# 天花板天窗發光板＋強烈自然太陽光束（對照 ref_57.png）
+	var mat_skylight := StandardMaterial3D.new()
+	mat_skylight.albedo_color = Color(1.0, 0.98, 0.88)
+	mat_skylight.emission_enabled = true
+	mat_skylight.emission = Color(1.0, 0.96, 0.82)
+	mat_skylight.emission_energy_multiplier = 2.6
+	_add_box(geo, Vector3(10.0, 0.08, 4.0), Vector3(58.0, by + gh - 0.04, -54.0), mat_skylight, false)
+	_add_omni(lights, Vector3(58.0, by + gh - 0.5, -52.0), Color(1.0, 0.95, 0.76), 2.4, 17.0, false, false)
+	_add_omni(lights, Vector3(58.0, by + gh - 0.5, -60.0), Color(0.68, 0.92, 0.56), 1.4, 14.0, false, false)
 
 	_add_note_prop(props, "GardenWarningNote", Vector3(55.5, by + 0.05, -46.2),
 		"撿起地上的緊急隔離警告", "M.E.G. 隔離警告：花園段（砼苑）",
@@ -1324,6 +1355,21 @@ func _build_lore_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> v
 
 	_add_omni(lights, Vector3(87.0, by + 3.3, 15.0), Color(0.25, 0.88, 1.0), 1.3, 12.0, false, false)
 	_add_omni(lights, Vector3(87.0, by + 3.3, 23.0), Color(0.95, 0.30, 0.75), 1.3, 12.0, false, true)
+
+	# 對照 ref_58.webp：正廳西牆一整排深色木框＋磨砂玻璃格子隔間＋兩扇黑色木門＋頭頂白日光燈
+	var mat_frosted := StandardMaterial3D.new()
+	mat_frosted.albedo_color = Color(0.78, 0.80, 0.72)
+	mat_frosted.emission_enabled = true
+	mat_frosted.emission = Color(0.45, 0.47, 0.42)
+	mat_frosted.emission_energy_multiplier = 0.65
+	_add_box(geo, Vector3(0.14, 1.3, 13.0), Vector3(78.35, by + 0.65, 19.5), mat_dark_wood, false)
+	_add_box(geo, Vector3(0.08, 1.6, 12.6), Vector3(78.38, by + 2.1, 19.5), mat_frosted, false)
+	for gz in [14.0, 16.2, 18.4, 20.6, 22.8, 25.0]:
+		_add_box(geo, Vector3(0.16, 2.2, 0.14), Vector3(78.40, by + 2.1, gz), mat_dark_wood, false)
+	_add_box(geo, Vector3(0.18, 2.3, 1.2), Vector3(78.42, by + 1.15, 17.3), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(0.18, 2.3, 1.2), Vector3(78.42, by + 1.15, 23.9), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(1.6, 0.06, 0.25), Vector3(84.5, by + lh - 0.1, 19.0), MAT_FLUORESCENT, false)
+	_add_omni(lights, Vector3(81.0, by + 3.4, 19.5), Color(0.96, 0.96, 0.88), 1.3, 12.0, false, false)
 
 	_spawn_model(props, PROP_DIR + "armchair.glb", "LoreSeat", Vector3(87.0, by + 0.16, 19.0), 180.0, Vector3(1.7, 1.0, 1.6))
 	_spawn_model(props, PROP_DIR + "floor_lamp.glb", "LoreLamp_1", Vector3(80.0, by, 13.5), 0.0, Vector3(0.4, 1.6, 0.4))
