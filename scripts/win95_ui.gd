@@ -80,6 +80,14 @@ func set_prompt(text: String) -> void:
 		_prompt_panel.visible = true
 
 
+func flash_hitmarker() -> void:
+	if not _crosshair:
+		return
+	_crosshair.color = Color(1.0, 0.15, 0.1, 1.0)
+	var tw := create_tween()
+	tw.tween_property(_crosshair, "color", Color(1.0, 1.0, 1.0, 0.9), 0.22)
+
+
 func show_explorer(title: String, file_name: String, file_size: String, doc_title: String, doc_body: String, image_path: String = "") -> void:
 	_is_open = true
 	_prompt_panel.visible = false

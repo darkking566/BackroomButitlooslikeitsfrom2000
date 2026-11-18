@@ -4,8 +4,10 @@ extends Node3D
 # 狀態：巡邏 → 調查（聽到）→ 凝視（遠遠看到）→ 追擊 → 搜索（跟丟）→ 折返 / 埋伏 / 回巡邏。
 # 每次追擊開始時隨機抽一種「追法」：直衝攔截、被看就不動、繞到背後。
 
-enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH, APPARITION, PEEK }
+enum State { PATROL, INVESTIGATE, STARE, CHASE, SEARCH, AMBUSH, APPARITION, PEEK, UNCONSCIOUS }
 enum Mood { RUSH, STALK, FLANK }
+
+const UNCONSCIOUS_DURATION := 60.0  # 被散彈槍打飛後失去意識 1 分鐘
 
 const HEAT_CELL := 4.0     # 熱度表格子邊長（公尺）
 const NEAR_DIST := 6.0     # 進到這個距離換成近距離臉
@@ -86,6 +88,13 @@ var _pov_cam: Camera3D
 var _pov_panel: Control
 var _pov_open := false
 var _pov_tween: Tween
+var _hitbox: Area3D
+var _ragdoll_sim: PhysicalBoneSimulator3D
+var _phys_bones: Array[PhysicalBone3D] = []
+var _hips_pb: PhysicalBone3D
+var _head_pb: PhysicalBone3D
+var _unconscious_t: float = 0.0
+var _ragdoll_sfx: AudioStreamPlayer3D
 
 
 func _ready() -> void:
@@ -126,6 +135,11 @@ func _ready() -> void:
 	_heavy.unit_size = 4.0
 	_heavy.max_distance = 70.0  # 很遠就聽得到牠衝過來
 	add_child(_heavy)
+	_ragdoll_sfx = AudioStreamPlayer3D.new()
+	_ragdoll_sfx.stream = BackroomsAudio.create_ragdoll_impact_stream()
+	_ragdoll_sfx.volume_db = 4.0
+	_ragdoll_sfx.max_distance = 45.0
+	add_child(_ragdoll_sfx)
 	var filter := get_parent().get_node_or_null("PS2PostLayer/PS2Filter")
 	if filter and filter.material is ShaderMaterial:
 		_post_mat = filter.material
@@ -156,6 +170,11 @@ func _bake_navmesh() -> void:
 func _physics_process(delta: float) -> void:
 	if not _nav_ready or (_ui and _ui.is_popup_open()):
 		return  # 玩家讀文件時動不了，怪物也暫停才公平
+	if state == State.UNCONSCIOUS:
+		_unconscious_t -= delta
+		if _unconscious_t <= 0.0:
+			_wake_up_from_ragdoll()
+		return
 	var dist := global_position.distance_to(_player.global_position)
 	if _enraged_t > 0.0:
 		_enraged_t -= delta
@@ -508,6 +527,7 @@ func _update_lights(dt: float) -> void:
 
 
 func _reset() -> void:
+	_stop_ragdoll()
 	global_position = _home
 	_path = PackedVector3Array()
 	_path_i = 0
@@ -517,6 +537,7 @@ func _reset() -> void:
 	_flash_burn = 0.0
 	_stagger_t = 0.0
 	_enraged_t = 0.0
+	_unconscious_t = 0.0
 	_noclip = false
 	_repath_t = 0.0
 	state = State.PATROL
@@ -543,6 +564,8 @@ func _build_sprite() -> void:
 			_head_bone = _skel.find_bone("head")
 			_chest_bone = _skel.find_bone("chest")
 			_skel.skeleton_updated.connect(_on_skeleton_updated)
+			_build_ragdoll()
+	_build_hitbox()
 
 
 func _build_pov() -> void:
@@ -623,6 +646,9 @@ func _process(_delta: float) -> void:
 	if not _pov_open:
 		return
 	_pov_panel.visible = not (_ui and _ui.is_popup_open())  # 開地圖、設定等視窗時先藏起來
+	if state == State.UNCONSCIOUS and _head_pb:
+		_pov_cam.global_transform = _head_pb.global_transform
+		return
 	# 攝影機跟著怪物的頭：面向模型正面（模型朝 +Z、攝影機朝 -Z），歪脖子時畫面也跟著歪
 	var yaw := _model.rotation.y if _model else 0.0
 	_pov_cam.global_position = global_position + Vector3.UP * (POV_EYE_Y - 0.3)
@@ -630,7 +656,7 @@ func _process(_delta: float) -> void:
 
 
 func _on_skeleton_updated() -> void:
-	if not _skel:
+	if not _skel or state == State.UNCONSCIOUS:
 		return
 	if _head_bone >= 0 and absf(_snap_roll) > 0.001:
 		var rot := _skel.get_bone_pose_rotation(_head_bone)
@@ -765,3 +791,182 @@ func _update_lure(delta: float, dist: float) -> void:
 		_lure_sfx.global_position = _snap(_near(_player.global_position, 8.0, 16.0)) + Vector3.UP * 1.4
 		_lure_sfx.pitch_scale = randf_range(0.55, 0.78)
 		_lure_sfx.play()
+
+
+func _build_hitbox() -> void:
+	_hitbox = Area3D.new()
+	_hitbox.name = "Hitbox"
+	_hitbox.collision_layer = 2
+	_hitbox.collision_mask = 0
+	_hitbox.monitoring = false
+	_hitbox.monitorable = true
+	_hitbox.set_meta("monster", self)
+	var cs := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.48
+	cap.height = 1.85
+	cs.shape = cap
+	cs.position = Vector3(0.0, 0.95, 0.0)
+	_hitbox.add_child(cs)
+	add_child(_hitbox)
+
+
+func _build_ragdoll() -> void:
+	if not _skel:
+		return
+	_ragdoll_sim = PhysicalBoneSimulator3D.new()
+	_ragdoll_sim.name = "RagdollSim"
+	_ragdoll_sim.active = false
+	_skel.add_child(_ragdoll_sim)
+
+	for i in _skel.get_bone_count():
+		var bname := _skel.get_bone_name(i)
+		var pb := PhysicalBone3D.new()
+		pb.name = "PB_" + bname
+		pb.bone_name = bname
+		pb.set_meta("monster", self)
+		pb.collision_layer = 4
+		pb.collision_mask = 1
+		pb.bounce = 0.38
+		pb.friction = 0.55
+		pb.linear_damp = 0.04
+		pb.angular_damp = 0.04
+		pb.mass = 12.0 if bname in ["hips", "chest"] else (10.0 if bname == "spine" else (5.0 if bname == "head" else 3.5))
+
+		if _skel.get_bone_parent(i) >= 0:
+			pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
+			pb.set("joint_constraints/swing_span", deg_to_rad(85.0))
+			pb.set("joint_constraints/twist_span", deg_to_rad(45.0))
+
+		var bpose := _skel.get_bone_global_pose(i)
+		var children := _skel.get_bone_children(i)
+		var target_child := -1
+		if not children.is_empty():
+			target_child = children[0]
+			if bname == "hips":
+				var sp := _skel.find_bone("spine")
+				if sp >= 0:
+					target_child = sp
+			elif bname == "chest":
+				var nk := _skel.find_bone("neck")
+				if nk >= 0:
+					target_child = nk
+
+		var cs := CollisionShape3D.new()
+		if target_child >= 0:
+			var cpose := _skel.get_bone_global_pose(target_child)
+			var local_vec := bpose.basis.inverse() * (cpose.origin - bpose.origin)
+			var blen := maxf(local_vec.length(), 0.14)
+			var dir := local_vec.normalized() if local_vec.length_squared() > 0.0001 else Vector3.UP
+			var q := Quaternion(Vector3.UP, dir)
+			pb.body_offset = Transform3D(Basis(q), local_vec * 0.5)
+			var cap := CapsuleShape3D.new()
+			cap.height = maxf(blen * 0.85, 0.16)
+			cap.radius = 0.15 if bname in ["hips", "spine", "chest"] else 0.065
+			cs.shape = cap
+		elif bname == "head":
+			pb.body_offset = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.12, 0.0))
+			var sph := SphereShape3D.new()
+			sph.radius = 0.15
+			cs.shape = sph
+		else:
+			pb.body_offset = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.17, 0.0))
+			var cap := CapsuleShape3D.new()
+			cap.height = 0.34
+			cap.radius = 0.06
+			cs.shape = cap
+
+		pb.add_child(cs)
+		pb.transform = bpose
+		_ragdoll_sim.add_child(pb)
+		_phys_bones.append(pb)
+		if bname == "hips":
+			_hips_pb = pb
+		elif bname == "head":
+			_head_pb = pb
+
+
+func hit_by_shotgun(_hit_pos: Vector3, blast_dir: Vector3, pellet_count: int) -> void:
+	var was_unconscious := state == State.UNCONSCIOUS
+	state = State.UNCONSCIOUS
+	_unconscious_t = UNCONSCIOUS_DURATION
+	if not was_unconscious:
+		_path = PackedVector3Array()
+		_path_i = 0
+		_snap_roll = 0.0
+		_peek_lean = 0.0
+		_stagger_t = 0.0
+		_enraged_t = 0.0
+		_flash_burn = 0.0
+		_echo_left = 0
+		_restore_all_lights()
+		if _post_mat:
+			for p in _post_base:
+				_post_mat.set_shader_parameter(p, _post_base[p])
+		if _hitbox:
+			_hitbox.set_deferred("monitorable", false)
+		if _anim:
+			_anim.stop()
+		if _ragdoll_sim:
+			_ragdoll_sim.active = true
+			_ragdoll_sim.physical_bones_start_simulation()
+	if _ragdoll_sfx:
+		_ragdoll_sfx.pitch_scale = randf_range(0.85, 1.1)
+		_ragdoll_sfx.play()
+	call_deferred("_apply_ragdoll_blast", blast_dir, pellet_count)
+
+
+func _apply_ragdoll_blast(blast_dir: Vector3, pellet_count: int) -> void:
+	if not _ragdoll_sim or not _ragdoll_sim.active:
+		return
+	var flat_dir := Vector3(blast_dir.x, 0.0, blast_dir.z)
+	if flat_dir.length_squared() < 0.001:
+		flat_dir = Vector3.FORWARD
+	var base_dir := (flat_dir.normalized() + Vector3(0.0, 0.65, 0.0)).normalized()
+	var launch_speed := lerpf(24.0, 38.0, clampf(float(pellet_count) / 8.0, 0.0, 1.0))
+	for pb in _phys_bones:
+		var jitter := Vector3(randf_range(-0.25, 0.25), randf_range(-0.08, 0.35), randf_range(-0.25, 0.25))
+		var blast := (base_dir + jitter).normalized() * pb.mass * launch_speed
+		pb.apply_central_impulse(blast)
+		var off_center := Vector3(randf_range(-0.35, 0.35), randf_range(-0.35, 0.35), randf_range(-0.35, 0.35))
+		pb.apply_impulse(blast * 0.35, off_center)
+
+
+func _wake_up_from_ragdoll() -> void:
+	var wake_pos := _hips_pb.global_position if _hips_pb else global_position
+	_stop_ragdoll()
+	global_position = _snap(wake_pos)
+	state = State.PATROL
+	_repath_t = 0.0
+	_wait_t = 1.5
+
+
+func _stop_ragdoll() -> void:
+	if _ragdoll_sim and _ragdoll_sim.active:
+		_ragdoll_sim.physical_bones_stop_simulation()
+		_ragdoll_sim.active = false
+	if _skel:
+		_skel.reset_bone_poses()
+	if _model:
+		_model.position = Vector3(0.0, -0.3, 0.0)
+		_model.rotation = Vector3.ZERO
+	if _anim and _anim.has_animation("Idle"):
+		_anim.play("Idle")
+	if _hitbox:
+		_hitbox.set_deferred("monitorable", true)
+
+
+func _restore_all_lights() -> void:
+	for light in _dimmed:
+		if is_instance_valid(light):
+			light.visible = true
+	_dimmed.clear()
+
+
+func on_gunshot_heard(gun_pos: Vector3) -> void:
+	if state == State.UNCONSCIOUS or state == State.CHASE or not _nav_ready:
+		return
+	if global_position.distance_to(gun_pos) < 35.0:
+		state = State.INVESTIGATE
+		_go_to(_near(gun_pos, 0.0, 2.5))
+		_repath_t = 1.5

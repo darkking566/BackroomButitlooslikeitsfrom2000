@@ -255,3 +255,101 @@ static func create_power_trip_stream() -> AudioStreamWAV:
 	wav.stereo = false
 	wav.data = bytes
 	return wav
+
+
+static func create_shotgun_blast_stream() -> AudioStreamWAV:
+	var mix_rate := 22050
+	var duration_sec := 0.65
+	var sample_count := int(mix_rate * duration_sec)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12881
+	var lp := 0.0
+	var phase := 0.0
+
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		# Heavy sub-bass punch dropping 140Hz -> 32Hz
+		var freq := lerpf(140.0, 32.0, minf(t * 9.0, 1.0))
+		phase += TAU * freq / float(mix_rate)
+		var boom := sin(phase) * exp(-t * 11.0)
+
+		# Explosive white-noise crack + gritty hall tail
+		var raw := rng.randf_range(-1.0, 1.0)
+		lp = lerpf(lp, raw, 0.45 if t < 0.08 else 0.14)
+		var crack := raw * exp(-t * 28.0) * 0.85
+		var tail := lp * exp(-t * 5.2) * 0.65
+
+		var sample := clampf((boom * 0.75 + crack + tail) * 0.95, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = mix_rate
+	wav.stereo = false
+	wav.data = bytes
+	return wav
+
+
+static func create_shotgun_pump_stream() -> AudioStreamWAV:
+	var mix_rate := 22050
+	var duration_sec := 0.32
+	var sample_count := int(mix_rate * duration_sec)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 44219
+	var lp := 0.0
+
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		# Two-click metallic slide: "chk" at 0.0s, "chk" at 0.14s
+		var env1 := exp(-t * 45.0)
+		var env2 := exp(-(t - 0.14) * 45.0) if t >= 0.14 else 0.0
+		var raw := rng.randf_range(-1.0, 1.0)
+		lp = lerpf(lp, raw, 0.35)
+		var metallic := sin(TAU * 920.0 * t) * 0.25 + sin(TAU * 1640.0 * t) * 0.15
+		var clack := (raw - lp) * 0.75 + metallic
+		var sample := clampf(clack * (env1 * 0.8 + env2 * 0.95) * 0.7, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = mix_rate
+	wav.stereo = false
+	wav.data = bytes
+	return wav
+
+
+static func create_ragdoll_impact_stream() -> AudioStreamWAV:
+	var mix_rate := 22050
+	var duration_sec := 0.75
+	var sample_count := int(mix_rate * duration_sec)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77331
+	var lp := 0.0
+	var phase := 0.0
+
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		# Distorted downward monster yelp + heavy body crunch
+		var freq := lerpf(320.0, 68.0, minf(t * 2.2, 1.0))
+		phase += TAU * freq / float(mix_rate)
+		var yelp := tanh(sin(phase) * 2.4) * exp(-t * 3.8) * 0.55
+		lp = lerpf(lp, rng.randf_range(-1.0, 1.0), 0.28)
+		var crunch := lp * exp(-t * 16.0) * 0.65
+		var sample := clampf(yelp + crunch, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = mix_rate
+	wav.stereo = false
+	wav.data = bytes
+	return wav

@@ -34,9 +34,12 @@ var _capsule: CapsuleShape3D
 var _win95_ui: CanvasLayer
 var _spawn_pos: Vector3
 var _spawn_rot: Vector3
+const ShotgunScript := preload("res://scripts/shotgun.gd")
+
 var _elapsed_time: float = 0.0
 var _found_pc_clue: bool = false
 var _current_target: Node = null
+var _shotgun: ShotgunScript = null
 
 
 func _ready() -> void:
@@ -59,6 +62,9 @@ func _ready() -> void:
 		_win95_ui.window_closed.connect(_on_ui_closed)
 		_win95_ui.restart_requested.connect(_on_restart_requested)
 		_win95_ui.teleport_requested.connect(_on_teleport_requested)
+	if camera:
+		_shotgun = ShotgunScript.new()
+		camera.add_child(_shotgun)
 	_capture_mouse()
 
 
@@ -166,6 +172,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
 			_capture_mouse()
+		elif _shotgun:
+			_shotgun.try_fire(camera, self, _win95_ui)
+
+
+func apply_recoil(pitch_kick: float) -> void:
+	_pitch = clamp(_pitch + pitch_kick, deg_to_rad(-80.0), deg_to_rad(80.0))
+	head.rotation.x = _pitch
 
 
 func _physics_process(delta: float) -> void:
@@ -202,6 +215,9 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_head_bob(delta)
+	if _shotgun:
+		var horiz := Vector2(velocity.x, velocity.z).length() if is_on_floor() else 0.0
+		_shotgun.set_move_bob(horiz)
 
 
 func _update_crouch(delta: float) -> void:
