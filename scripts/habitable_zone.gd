@@ -190,6 +190,9 @@ func _build_habitable_zone() -> void:
 	# 8. B2 南側：地下洗手間與更衣室 (x: 44..68, z: 18..38)
 	_build_b2_restroom(geo, lights, props)
 
+	# 9. 天鷹段北側延伸：小徑（The Paths）窄走廊與休息房間 (x: -32..-10, z: -32..-22)
+	_build_the_paths(geo, lights, props)
+
 
 func _init_local_materials() -> void:
 	_mat_concrete_dark = StandardMaterial3D.new()
@@ -351,7 +354,10 @@ func _build_north_corridor(geo: StaticBody3D, lights: Node3D, props: Node3D) -> 
 	# 北側管線倉庫走廊 (x: -10..10, z: -34..-20)
 	_add_box(geo, Vector3(20.0, 0.2, 14.0), Vector3(0.0, -0.1, -27.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(20.0, 0.2, 14.0), Vector3(0.0, CEIL_H + 0.1, -27.0), _mat_concrete_dark, true)
-	_add_box(geo, Vector3(WALL_T, CEIL_H, 14.0), Vector3(-10.0, CEIL_H * 0.5, -27.0), MAT_HALL_WALL, true)
+	# 西牆 (x = -10.0)，於 z: -28.3..-25.7 留 2.6m 開口往「小徑 (The Paths)」
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 5.7), Vector3(-10.0, CEIL_H * 0.5, -22.85), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, CEIL_H, 5.7), Vector3(-10.0, CEIL_H * 0.5, -31.15), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, 1.0, 2.6), Vector3(-10.0, CEIL_H - 0.5, -27.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 14.0), Vector3(10.0, CEIL_H * 0.5, -27.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(20.0, CEIL_H, WALL_T), Vector3(0.0, CEIL_H * 0.5, -34.0), MAT_HALL_WALL, true)
 
@@ -427,24 +433,26 @@ func _build_south_ramp(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void
 	_south_door_light.omni_range = 7.5
 	lights.add_child(_south_door_light)
 
-	# 捲門後方：M.E.G. 地下安全避難所 (x: -5..5, z: 30..39)
+	# 捲門後方：M.E.G. Alpha 基地前哨 (x: -5..5, z: 30..39)
 	_add_box(geo, Vector3(10.0, 0.2, 9.0), Vector3(0.0, -0.1, 34.5), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(10.0, 0.2, 9.0), Vector3(0.0, CEIL_H + 0.1, 34.5), _mat_concrete_dark, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 9.0), Vector3(-5.0, CEIL_H * 0.5, 34.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 9.0), Vector3(5.0, CEIL_H * 0.5, 34.5), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(10.0, CEIL_H, WALL_T), Vector3(0.0, CEIL_H * 0.5, 39.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(3.2, 0.5, 0.08), Vector3(0.0, 2.75, 38.75), _mat_hazard, false) # M.E.G. Alpha 基地淡黃色旗幟橫條
 	_add_omni(lights, Vector3(0.0, 3.1, 34.5), Color(1.0, 0.86, 0.62), 1.35, 11.0, false, false)
 
 	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "ShelterDesk", Vector3(0.0, 0.0, 37.2), 180.0, Vector3(1.5, 0.78, 0.8))
 	_spawn_model(props, PROP_DIR + "computer_screen.glb", "ShelterScreen", Vector3(0.3, 0.78, 37.2), 180.0, Vector3(0.5, 0.45, 0.4))
+	_add_wiki_terminal(props, "AlphaWikiTerminal", Vector3(0.3, 1.0, 37.2), Vector3(0.65, 0.65, 0.65), "使用 Alpha 基地終端機查閱檔案庫")
 	_spawn_model(props, PROP_DIR + "armchair.glb", "ShelterCouch", Vector3(-3.3, 0.0, 34.5), 90.0, Vector3(1.7, 1.0, 1.6))
 	_spawn_model(props, PROP_DIR + "shelf_small.glb", "ShelterShelf", Vector3(3.8, 0.0, 35.0), -90.0, Vector3(1.2, 1.8, 0.5))
-	_add_note_prop(props, "ShelterLogNote", Vector3(-0.2, 0.80, 37.2),
-		"閱讀避難所桌上的終端日誌", "M.E.G. 宜居地帶前哨日誌",
-		"【恭喜抵達：宜居地帶安全前哨】\n\n"
-		+ "你成功修復了西區與北區的配電開關，並開啟了南側電動捲門。\n"
-		+ "在無盡的潮濕混凝土迷宮中，這間備用發電機供電的避難所是目前最穩定的歇腳處。\n\n"
-		+ "（你可以隨時按 [M] 開啟導航終端機返回「閾界」，或繼續探索這座停車場。）"
+	_add_note_prop(props, "ShelterLogNote", Vector3(-0.3, 0.80, 37.2),
+		"閱讀 M.E.G. Alpha 基地執勤日誌", "M.E.G. Alpha 基地（天鷹段）",
+		"【歡迎來到：探險者總署 Alpha 基地前哨】\n\n"
+		+ "這裡是剛從「黃色廳房／閾界」切入宜居地帶的流浪者首個庇護據點。\n"
+		+ "若在天鷹段看見穿著淡黃色外套、佩帶雄鷹徽章的 4～5 人巡邏隊，可放心向他們求助。\n\n"
+		+ "• 往東下斜坡可前往板條箱最豐富的「躍金段」與 B.N.T.G. 商人之家。"
 	)
 
 
@@ -514,12 +522,12 @@ func _build_b2_warehouse(geo: StaticBody3D, lights: Node3D, props: Node3D) -> vo
 	_spawn_model(props, PROP_DIR + "computer_screen.glb", "B2Screen", Vector3(44.2, by + 0.78, -14.5), 0.0, Vector3(0.5, 0.45, 0.4))
 	_spawn_model(props, PROP_DIR + "car_suv.glb", "B2CargoSUV", Vector3(68.0, by, 1.5), 165.0, Vector3(4.5, 1.65, 2.25))
 	_add_note_prop(props, "B2WarehouseNote", Vector3(44.9, by + 0.80, -14.5),
-		"閱讀 B2 貨架倉庫的盤點表", "B2 大型倉庫盤點紀錄",
-		"【宜居地帶 — B2 地下倉庫區】\n\n"
-		+ "這裡的天花板比一樓停車場高出許多，整排貨架上堆滿了沒有標籤的密封木箱。\n"
-		+ "我們試著撬開過三個箱子：第一個裡面全是杏仁水，第二個是空白的錄影帶，第三個……是空的，但箱蓋內側有抓痕。\n\n"
-		+ "「別在晚上走進最東邊的貨架通道。」"
+		"閱讀 B2 貨架倉庫的盤點表", "躍金段倉庫盤點紀錄",
+		"【宜居地帶 — 躍金段（B2 貨架倉庫）】\n\n"
+		+ "這裡比天鷹段明亮得多，堆放著大量板條箱。大部分裝著杏仁水、露營爐具和罐頭。\n"
+		+ "西南角設有 B.N.T.G. 商人之家的交易櫃檯，往北則是積水貨櫃區。"
 	)
+	_build_b2_trader_post(geo, lights, props)
 
 
 func _build_generator_room(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
@@ -996,4 +1004,57 @@ func _build_b2_restroom(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 		"【注意鏡子】\n\n"
 		+ "水龍頭滴出來的是微溫的自來水，但千萬別拿來洗臉。\n"
 		+ "如果你在燈閃爍的那一瞬間看見鏡子裡的倒影慢了半拍才轉頭——立刻離開洗手間。"
+	)
+
+
+
+func _build_the_paths(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# 小徑 (The Paths)：從北側管線走廊西牆延伸出去的窄走廊與休息房間 (x: -32..-10, z: -32..-22)
+	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, -0.1, -27.0), MAT_HALL_FLOOR, true)
+	_add_box(geo, Vector3(22.0, 0.2, 10.0), Vector3(-21.0, 2.9, -27.0), _mat_concrete_dark, true)
+	# 外圍封閉牆
+	_add_box(geo, Vector3(WALL_T, 2.8, 10.0), Vector3(-32.0, 1.4, -27.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -32.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(22.0, 2.8, WALL_T), Vector3(-21.0, 1.4, -22.0), MAT_HALL_WALL, true)
+
+	# 中央窄走廊兩側隔牆（走廊 z: -28.3..-25.7，北房 z: -32..-28.3，南房 z: -25.7..-22）
+	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-14.0, 1.4, -28.4), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-26.5, 1.4, -28.4), MAT_HALL_WALL, true) # x: -21..-18 留門洞進北房
+	_add_box(geo, Vector3(11.0, 2.8, 0.22), Vector3(-15.5, 1.4, -25.6), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(8.0, 2.8, 0.22), Vector3(-28.0, 1.4, -25.6), MAT_HALL_WALL, true) # x: -24..-21 留門洞進南房
+
+	_add_omni(lights, Vector3(-19.5, 2.45, -27.0), Color(0.84, 0.90, 0.96), 0.75, 10.0, false, true)
+	_add_omni(lights, Vector3(-27.0, 2.45, -27.0), Color(0.75, 0.85, 0.92), 0.65, 9.0, false, false)
+
+	# 北房：破舊休息室（沙發床墊＋密封物資＋門鎖禁忌字條）
+	_spawn_model(props, PROP_DIR + "armchair.glb", "PathsMattress", Vector3(-24.0, 0.0, -30.5), 0.0, Vector3(1.7, 1.0, 1.6))
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "PathsCrate", Vector3(-16.0, 0.0, -30.8), 12.0, Vector3(0.7, 0.7, 0.7))
+	_add_note_prop(props, "PathsLockNote", Vector3(-16.0, 0.72, -30.8),
+		"閱讀板條箱上的「小徑生存守則」", "小徑與門鎖禁忌",
+		"【警告：切勿使用自然存在的門鎖！】\n\n"
+		+ "這裡是主過道旁邊的「小徑」。雖然房間裡常有舊床墊和瓶裝罐頭可以暫時休息，\n"
+		+ "但千萬不要鎖上房門——自然生成的門鎖會在你注視下憑空消失，把你永遠困死在房間裡。\n"
+		+ "如果要擋住「閃爍」時門外的東西，請用沙發或木箱頂住門板。"
+	)
+
+	# 南房：雜物儲藏間（B.N.T.G. 交易提示）
+	_spawn_model(props, PROP_DIR + "pallet_broken.glb", "PathsPallet", Vector3(-23.0, 0.0, -23.5), 25.0, Vector3(1.2, 0.18, 1.0))
+	_spawn_model(props, PROP_DIR + "cardboard_boxes.glb", "PathsBoxes", Vector3(-18.0, 0.0, -23.5), -15.0, Vector3(0.9, 0.8, 0.9))
+
+
+func _build_b2_trader_post(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	# B2「躍金段」西南角：B.N.T.G. 商人之家交易櫃檯 (x: 42..49, z: 10..17, y=-4.0)
+	var by := -4.0
+	_add_box(geo, Vector3(4.5, 1.05, 0.8), Vector3(45.0, by + 0.525, 12.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(4.6, 0.18, 0.85), Vector3(45.0, by + 1.12, 12.0), _mat_hazard, false)
+	_add_omni(lights, Vector3(45.0, by + 2.8, 13.5), Color(1.0, 0.82, 0.48), 1.25, 10.0, false, false)
+
+	_spawn_model(props, PROP_DIR + "pallet.glb", "TraderPallet", Vector3(43.5, by, 15.2), 0.0, Vector3(1.2, 0.18, 1.0))
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "TraderCrate_1", Vector3(43.5, by + 0.18, 15.2), 5.0, Vector3(0.7, 0.7, 0.7))
+	_spawn_model(props, PROP_DIR + "barrel.glb", "TraderBarrel", Vector3(46.8, by, 15.5), 0.0, Vector3(0.6, 0.9, 0.6))
+	_add_note_prop(props, "TraderKeepNote", Vector3(45.0, by + 1.22, 12.0),
+		"查看「B.N.T.G. 商人之家」交易告示", "不結盟貿易集團：商人之家",
+		"【躍金段 — B.N.T.G. 商人之家】\n\n"
+		+ "我們不提供免費庇護，想要換取瓶裝水、手電筒電池或暫時棲身，請拿出對等物資以物易物。\n"
+		+ "躍金段的板條箱比天鷹段多得多，祝你好運，流浪者。"
 	)
