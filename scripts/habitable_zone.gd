@@ -1084,7 +1084,7 @@ func _build_b2_trader_post(geo: StaticBody3D, lights: Node3D, props: Node3D) -> 
 
 
 func _build_gothic_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 哥特段 (Gothic)：彎曲拱門圓柱與希波克拉底醫療隊 (x: -48..-24, z: 2..20, 高 4.8m)
+	# 哥特段 (Gothic)：尖拱圓柱與希波克拉底醫療隊據點 (x: -48..-24, z: 2..20, 高 4.8m)
 	var gh := 4.8
 	_add_box(geo, Vector3(24.0, 0.2, 18.0), Vector3(-36.0, -0.1, 11.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(24.0, 0.2, 18.0), Vector3(-36.0, gh + 0.1, 11.0), _mat_paint_white, true)
@@ -1092,7 +1092,7 @@ func _build_gothic_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 	_add_box(geo, Vector3(24.0, gh, WALL_T), Vector3(-36.0, gh * 0.5, 2.0), _mat_paint_white, true)
 	_add_box(geo, Vector3(24.0, gh, WALL_T), Vector3(-36.0, gh * 0.5, 20.0), _mat_paint_white, true)
 
-	# 雙排圓柱與拱樑
+	# 雙排圓柱與尖拱斜樑
 	for cx in [-42.0, -35.0, -28.0]:
 		for cz in [6.5, 15.5]:
 			var col_mi := MeshInstance3D.new()
@@ -1113,20 +1113,38 @@ func _build_gothic_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 			cshape.position = Vector3(cx, gh * 0.5, cz)
 			geo.add_child(cshape)
 		_add_box(geo, Vector3(0.7, 0.45, 9.0), Vector3(cx, gh - 0.25, 11.0), _mat_paint_white, false)
+		_add_rotated_box(geo, Vector3(0.5, 0.35, 5.2), Vector3(cx, gh - 1.15, 8.7), Vector3(0.32, 0.0, 0.0), _mat_paint_white, false)
+		_add_rotated_box(geo, Vector3(0.5, 0.35, 5.2), Vector3(cx, gh - 1.15, 13.3), Vector3(-0.32, 0.0, 0.0), _mat_paint_white, false)
 
 	_add_omni(lights, Vector3(-35.0, gh - 0.4, 11.0), Color(0.95, 0.98, 1.0), 1.35, 14.0, false, false)
-	_add_omni(lights, Vector3(-44.0, gh - 0.4, 11.0), Color(0.88, 0.96, 1.0), 1.0, 11.0, false, false)
+	_add_omni(lights, Vector3(-44.0, gh - 0.4, 11.0), Color(0.88, 0.96, 1.0), 1.1, 12.0, false, false)
 
-	# 希波克拉底醫療隊病床與物資
-	_spawn_model(props, PROP_DIR + "armchair.glb", "MedicalBed_1", Vector3(-44.5, 0.0, 5.0), 0.0, Vector3(1.7, 1.0, 1.6))
-	_spawn_model(props, PROP_DIR + "armchair.glb", "MedicalBed_2", Vector3(-44.5, 0.0, 17.0), 180.0, Vector3(1.7, 1.0, 1.6))
-	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "MedicalDesk", Vector3(-46.5, 0.0, 11.0), 90.0, Vector3(1.5, 0.78, 0.8))
-	_spawn_model(props, PROP_DIR + "fridge.glb", "MedicalFridge", Vector3(-46.5, 0.0, 14.0), 90.0, Vector3(0.8, 1.7, 0.8))
-	_add_note_prop(props, "GothicMedicalNote", Vector3(-46.5, 0.80, 11.0),
+	# 淡青白色醫療隔間簾幕與 3 張病床（床架＋白床墊＋枕頭）
+	var mat_curtain := StandardMaterial3D.new()
+	mat_curtain.albedo_color = Color(0.68, 0.80, 0.82)
+	mat_curtain.roughness = 0.92
+	var mat_bed := StandardMaterial3D.new()
+	mat_bed.albedo_color = Color(0.82, 0.84, 0.84)
+	mat_bed.roughness = 0.88
+	for bz in [4.5, 11.0, 17.5]:
+		_add_box(geo, Vector3(3.2, 2.3, 0.08), Vector3(-45.5, 1.25, bz - 2.0), mat_curtain, false)
+		_add_box(geo, Vector3(2.1, 0.45, 1.05), Vector3(-45.8, 0.25, bz), _mat_pipe, true)
+		_add_box(geo, Vector3(2.0, 0.18, 0.98), Vector3(-45.8, 0.56, bz), mat_bed, false)
+		_add_box(geo, Vector3(0.4, 0.14, 0.65), Vector3(-46.5, 0.70, bz), _mat_paint_white, false)
+
+	# 分診接待桌＋檔案終端機＋藥品櫃
+	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "MedicalDesk", Vector3(-39.5, 0.0, 11.0), 90.0, Vector3(1.5, 0.78, 0.8))
+	_spawn_model(props, PROP_DIR + "computer_screen.glb", "MedicalScreen", Vector3(-39.5, 0.78, 11.3), 90.0, Vector3(0.5, 0.45, 0.4))
+	_add_wiki_terminal(props, "MedicalWikiTerminal", Vector3(-39.5, 1.0, 11.3), Vector3(0.65, 0.65, 0.65), "使用醫療站終端查閱檔案庫")
+	_spawn_model(props, MODEL_DIR + "office_chair.glb", "MedicalChair", Vector3(-40.5, 0.0, 11.0), 80.0, Vector3(0.65, 0.95, 0.65))
+	_spawn_model(props, PROP_DIR + "fridge.glb", "MedicalFridge", Vector3(-46.8, 0.0, 19.0), 180.0, Vector3(0.8, 1.7, 0.8))
+	_spawn_model(props, PROP_DIR + "shelf_small.glb", "MedShelf_1", Vector3(-42.0, 0.0, 3.0), 0.0, Vector3(1.2, 1.8, 0.5))
+	_spawn_model(props, PROP_DIR + "shelf_small.glb", "MedShelf_2", Vector3(-44.0, 0.0, 3.0), 0.0, Vector3(1.2, 1.8, 0.5))
+	_add_note_prop(props, "GothicMedicalNote", Vector3(-39.5, 0.80, 10.6),
 		"閱讀「希波克拉底醫療站」值班紀錄", "阿麗亞娜集團：希波克拉底醫療站",
 		"【哥特段 — 希波克拉底醫療團隊】\n\n"
-		+ "這裡以彎曲的拱門和白色圓柱聞名，是阿麗亞娜集團在宜居地帶的主要醫療據點。\n"
-		+ "如果你在探索中受傷、脫水或出現精神疲勞，可在這裡暫時接受療護與休養。\n"
+		+ "這裡以尖拱和白色圓柱聞名，是阿麗亞娜集團在宜居地帶的主要醫療據點。\n"
+		+ "病床區備有杏仁水點滴與急救繃帶；若你在探索中受傷或出現精神疲勞，可在這裡暫時休養。\n"
 		+ "（具備醫護或生物研究專長者可申請長期駐留。）"
 	)
 
@@ -1140,45 +1158,66 @@ func _build_ouroboros_district(geo: StaticBody3D, lights: Node3D, props: Node3D)
 	_add_box(geo, Vector3(WALL_T, oh, 18.0), Vector3(28.0, oh * 0.5, -29.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(18.0, oh, WALL_T), Vector3(19.0, oh * 0.5, -38.0), MAT_HALL_WALL, true)
 
-	# 鋼管鷹架與未完成半牆
-	_add_box(geo, Vector3(6.0, 1.3, 0.4), Vector3(20.0, 0.65, -28.0), MAT_DARK_BRICK, true)
-	_add_box(geo, Vector3(5.0, 0.14, 1.4), Vector3(20.0, 1.9, -35.5), _mat_pipe, true)
-	for sx in [17.7, 22.3]:
-		_add_box(geo, Vector3(0.14, 3.4, 0.14), Vector3(sx, 1.7, -36.0), _mat_pipe, false)
-		_add_box(geo, Vector3(0.14, 3.4, 0.14), Vector3(sx, 1.7, -34.9), _mat_pipe, false)
-	_add_box(geo, Vector3(6.5, 0.16, 0.16), Vector3(16.0, 0.85, -23.0), _mat_hazard, true) # 施工警示護欄
+	# 雙層鋼管鷹架與未完成磚牆
+	_add_box(geo, Vector3(6.5, 1.35, 0.45), Vector3(20.0, 0.675, -28.0), MAT_DARK_BRICK, true)
+	_add_box(geo, Vector3(8.5, 0.14, 1.5), Vector3(20.0, 1.85, -36.2), _mat_pipe, true)
+	_add_box(geo, Vector3(8.5, 0.14, 1.5), Vector3(20.0, 3.35, -36.2), _mat_pipe, false)
+	for sx in [16.0, 20.0, 24.0]:
+		_add_box(geo, Vector3(0.14, 3.8, 0.14), Vector3(sx, 1.9, -36.8), _mat_pipe, false)
+		_add_box(geo, Vector3(0.14, 3.8, 0.14), Vector3(sx, 1.9, -35.5), _mat_pipe, false)
+	# 東牆側施工鷹架
+	_add_box(geo, Vector3(1.5, 0.14, 7.0), Vector3(26.6, 1.85, -29.0), _mat_pipe, true)
+	_add_box(geo, Vector3(6.5, 0.16, 0.16), Vector3(15.5, 0.85, -23.0), _mat_hazard, true)
 
-	# 兩個沉默的影子施工生物剪影（背對玩家面向牆壁）
+	# 5 個沉默的影子施工生物剪影（包含站上層鷹架的身影）
 	var mat_shadow := StandardMaterial3D.new()
 	mat_shadow.albedo_color = Color(0.05, 0.05, 0.06)
 	mat_shadow.roughness = 0.98
-	for wp in [Vector3(24.5, 0.0, -34.5), Vector3(13.5, 0.0, -35.8)]:
+	var workers := [
+		Vector3(24.5, 0.0, -34.5),
+		Vector3(13.5, 0.0, -35.8),
+		Vector3(21.0, 1.92, -36.2),
+		Vector3(25.8, 0.0, -29.0),
+		Vector3(18.5, 0.0, -29.2),
+	]
+	for wp in workers:
 		_add_box(geo, Vector3(0.5, 1.45, 0.35), wp + Vector3(0.0, 0.725, 0.0), mat_shadow, true)
 		_add_box(geo, Vector3(0.32, 0.32, 0.32), wp + Vector3(0.0, 1.65, 0.0), mat_shadow, false)
 
-	_add_omni(lights, Vector3(18.5, 3.2, -29.0), Color(1.0, 0.78, 0.42), 1.3, 13.0, false, true)
-	_spawn_model(props, PROP_DIR + "ladder.glb", "OuroLadder", Vector3(20.0, 0.0, -34.2), 0.0, Vector3(0.6, 2.2, 0.4))
+	_add_omni(lights, Vector3(18.5, 3.2, -29.0), Color(1.0, 0.78, 0.42), 1.35, 13.5, false, true)
+	_add_omni(lights, Vector3(24.0, 2.8, -35.0), Color(1.0, 0.68, 0.30), 1.0, 10.0, false, false)
+
+	_spawn_model(props, PROP_DIR + "ladder.glb", "OuroLadder_1", Vector3(20.0, 0.0, -34.8), 0.0, Vector3(0.6, 2.2, 0.4))
+	_spawn_model(props, PROP_DIR + "ladder.glb", "OuroLadder_2", Vector3(25.5, 0.0, -26.0), -90.0, Vector3(0.6, 2.2, 0.4))
+	_spawn_model(props, PROP_DIR + "pallet.glb", "OuroPallet_1", Vector3(12.2, 0.0, -26.0), 10.0, Vector3(1.2, 0.18, 1.0))
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "OuroCrate_1", Vector3(12.2, 0.18, -26.0), 15.0, Vector3(0.7, 0.7, 0.7))
+	_spawn_model(props, PROP_DIR + "pallet_broken.glb", "OuroPallet_2", Vector3(24.5, 0.0, -23.5), -20.0, Vector3(1.2, 0.18, 1.0))
+	_spawn_model(props, PROP_DIR + "barrel.glb", "OuroBarrel", Vector3(12.0, 0.0, -32.0), 0.0, Vector3(0.6, 0.9, 0.6))
 	_spawn_model(props, PROP_DIR + "bucket.glb", "OuroBucket", Vector3(17.5, 0.0, -27.2), 0.0, Vector3(0.4, 0.5, 0.4))
-	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "OuroCone", Vector3(14.5, 0.0, -22.5), 0.0, Vector3(0.55, 0.72, 0.55))
-	_add_note_prop(props, "OuroborosNote", Vector3(19.0, 1.32, -28.0),
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "OuroCone_1", Vector3(14.5, 0.0, -22.5), 0.0, Vector3(0.55, 0.72, 0.55))
+	_spawn_model(props, PROP_DIR + "traffic_cone.glb", "OuroCone_2", Vector3(18.5, 0.0, -22.5), 12.0, Vector3(0.55, 0.72, 0.55))
+	_add_note_prop(props, "OuroborosNote", Vector3(19.0, 1.38, -28.0),
 		"查看未完工磚牆上的施工告示", "銜尾段觀測筆記",
 		"【銜尾段 — 永無止境的施工區】\n\n"
 		+ "這裡是宜居地帶最小的區段。穿著工裝、外觀如影子的生物幾十年來都在修補這些牆壁，"
-		+ "卻從未有任何實質進度。\n\n"
+		+ "卻從未有任何實質進度——連鷹架上的磚塊數量都跟十年前一模一樣。\n\n"
 		+ "• 警告：他們完全無視人類存在，但工程裝置容易引發意外，請勿靠近並儘速離開。"
 	)
 
 
 func _build_garden_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 花園段／砼苑 (Garden)：青翠植物卻致命的異變險地 (x: 46..70, z: -64..-44, y=-4.0)
+	# 花園段／砼苑 (Garden)：植物瘋狂蔓延的危險異變區 (x: 46..70, z: -64..-44, y=-4.0)
 	var by := -4.0
 	var gh := 5.5
 	var mat_moss := StandardMaterial3D.new()
 	mat_moss.albedo_color = Color(0.14, 0.32, 0.16)
 	mat_moss.roughness = 0.95
 	var mat_vine := StandardMaterial3D.new()
-	mat_vine.albedo_color = Color(0.18, 0.44, 0.20)
-	mat_vine.roughness = 0.90
+	mat_vine.albedo_color = Color(0.18, 0.46, 0.20)
+	mat_vine.roughness = 0.88
+	var mat_bush := StandardMaterial3D.new()
+	mat_bush.albedo_color = Color(0.12, 0.38, 0.15)
+	mat_bush.roughness = 0.92
 
 	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(58.0, by - 0.1, -54.0), mat_moss, true)
 	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(58.0, by + gh + 0.1, -54.0), _mat_concrete_dark, true)
@@ -1186,16 +1225,32 @@ func _build_garden_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 	_add_box(geo, Vector3(WALL_T, gh, 20.0), Vector3(70.0, by + gh * 0.5, -54.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(24.0, gh, WALL_T), Vector3(58.0, by + gh * 0.5, -64.0), MAT_HALL_WALL, true)
 
-	# 被藤蔓纏繞的柱子與成排植物
-	for px in [52.0, 64.0]:
-		for pz in [-50.0, -58.0]:
-			_add_box(geo, Vector3(0.95, gh, 0.95), Vector3(px, by + gh * 0.5, pz), MAT_HALL_WALL, true)
-			_add_box(geo, Vector3(1.15, 2.2, 1.15), Vector3(px, by + 1.4, pz), mat_vine, false)
-			_spawn_model(props, PROP_DIR + "plant.glb", "GardenPlant", Vector3(px + 1.1, by, pz), 30.0, Vector3(0.6, 1.0, 0.6))
+	# 中央碎裂苔蘚水池
+	_add_box(geo, Vector3(5.6, 0.35, 0.35), Vector3(58.0, by + 0.175, -51.2), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(5.6, 0.35, 0.35), Vector3(58.0, by + 0.175, -56.8), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(0.35, 0.35, 5.2), Vector3(55.2, by + 0.175, -54.0), _mat_concrete_dark, true)
+	_add_box(geo, Vector3(0.35, 0.35, 5.2), Vector3(60.8, by + 0.175, -54.0), _mat_concrete_dark, true)
+	_add_puddle(geo, Vector3(58.0, by + 0.04, -54.0), Vector2(5.2, 5.2))
 
-	_spawn_model(props, PROP_DIR + "plant.glb", "GardenCenterPlant", Vector3(58.0, by, -54.0), 0.0, Vector3(0.7, 1.1, 0.7))
-	_add_omni(lights, Vector3(58.0, by + gh - 0.4, -52.0), Color(0.32, 0.92, 0.48), 1.35, 14.0, false, false)
-	_add_omni(lights, Vector3(58.0, by + gh - 0.4, -60.0), Color(0.28, 0.85, 0.45), 1.15, 13.0, false, false)
+	# 被藤蔓纏繞的柱子、牆邊灌木叢與天花垂落藤蔓
+	for px in [51.0, 65.0]:
+		for pz in [-49.0, -59.0]:
+			_add_box(geo, Vector3(0.95, gh, 0.95), Vector3(px, by + gh * 0.5, pz), MAT_HALL_WALL, true)
+			_add_box(geo, Vector3(1.2, 2.8, 1.2), Vector3(px, by + 1.5, pz), mat_vine, false)
+			_add_box(geo, Vector3(1.6, 0.7, 1.6), Vector3(px, by + 0.35, pz), mat_bush, true)
+			_spawn_model(props, PROP_DIR + "plant.glb", "GardenPlant", Vector3(px + 1.2, by, pz), 30.0, Vector3(0.6, 1.0, 0.6))
+
+	# 沿牆瘋長的大型植物叢與垂掛藤蔓條
+	for bz in [-47.0, -54.0, -61.0]:
+		_add_box(geo, Vector3(1.8, 1.1, 2.6), Vector3(47.2, by + 0.55, bz), mat_bush, true)
+		_add_box(geo, Vector3(1.8, 1.2, 2.6), Vector3(68.8, by + 0.6, bz), mat_vine, true)
+	for vx in [50.0, 54.0, 62.0, 66.0]:
+		_add_box(geo, Vector3(0.22, 2.4, 0.22), Vector3(vx, by + gh - 1.2, -54.0), mat_vine, false)
+
+	_spawn_model(props, PROP_DIR + "box_closed.glb", "GardenLostCrate", Vector3(49.5, by, -61.5), 28.0, Vector3(0.7, 0.7, 0.7))
+	_spawn_model(props, PROP_DIR + "barrel.glb", "GardenBarrel", Vector3(48.5, by, -61.8), 0.0, Vector3(0.6, 0.9, 0.6))
+	_add_omni(lights, Vector3(58.0, by + gh - 0.4, -52.0), Color(0.32, 0.92, 0.48), 1.4, 14.5, false, false)
+	_add_omni(lights, Vector3(58.0, by + gh - 0.4, -60.0), Color(0.28, 0.85, 0.45), 1.2, 13.5, false, false)
 
 	_add_note_prop(props, "GardenWarningNote", Vector3(55.5, by + 0.05, -46.2),
 		"撿起地上的緊急隔離警告", "M.E.G. 隔離警告：花園段（砼苑）",
@@ -1203,6 +1258,11 @@ func _build_garden_district(geo: StaticBody3D, lights: Node3D, props: Node3D) ->
 		+ "不要被這裡青翠欲滴的草木表象欺騙！\n"
 		+ "在花園段／砼苑內停留超過一小時，人體就會開始扭曲異變，最終徹底化為一株植物。\n"
 		+ "應避之如瘟煞，請立刻原路折返！"
+	)
+	_add_note_prop(props, "GardenVictimNote", Vector3(49.5, by + 0.72, -61.5),
+		"閱讀被苔蘚覆蓋的背包筆記", "迷失者的最後紀錄",
+		"「已經過去四十分鐘了……我找不到回去貨櫃區的門。\n"
+		+ "剛才低頭看的時候，鞋帶和褲管已經長出綠色的根須扎進水泥縫裡了。」"
 	)
 
 
