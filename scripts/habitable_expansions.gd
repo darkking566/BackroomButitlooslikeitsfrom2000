@@ -15,6 +15,7 @@ static func build_all(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node
 	_expand_paths(hz, geo, lights, props)
 	_expand_lore(hz, geo, lights, props)
 	build_traders_keep(hz, geo, lights, props)
+	_expand_north_pipe_and_restroom(hz, geo, lights, props)
 
 
 static func _expand_gothic(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
@@ -404,3 +405,77 @@ static func build_traders_keep(hz: Node3D, geo: StaticBody3D, lights: Node3D, pr
 	hz._spawn_model(props, PROP_DIR + "armchair.glb", "TraderCouch", Vector3(24.0, by, 31.5), 180.0, Vector3(1.6, 1.0, 1.5))
 	hz._spawn_model(props, PROP_DIR + "floor_lamp.glb", "TraderLamp", Vector3(22.8, by, 32.8), 0.0, Vector3(0.4, 1.6, 0.4))
 	hz._spawn_model(props, PROP_DIR + "coffee_machine.glb", "TraderCoffee", Vector3(26.8, by, 21.2), 0.0, Vector3(0.35, 0.4, 0.35))
+
+
+
+static func _expand_north_pipe_and_restroom(hz: Node3D, geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
+	var mat_floor: Material = hz.MAT_HALL_FLOOR
+	var mat_wall: Material = hz.MAT_HALL_WALL
+	var mat_dark: Material = hz._mat_concrete_dark
+	var mat_pipe: Material = hz._mat_pipe
+
+	# 1. 充實 B1 北側管線走廊內部 (x: -10..10, z: -34..-20) ＋ 新增北側泵浦控制室 (x: -8..8, z: -46..-34)
+	# 走廊中央兩座大型水泵機組＋垂降管線，讓通道更有層次
+	for px in [-4.5, 4.5]:
+		hz._add_box(geo, Vector3(2.8, 0.3, 3.6), Vector3(px, 0.15, -27.0), mat_dark, true)
+		hz._add_box(geo, Vector3(2.0, 1.35, 2.6), Vector3(px, 0.95, -27.0), mat_pipe, true)
+		hz._add_box(geo, Vector3(0.35, 2.6, 0.35), Vector3(px, 2.3, -27.0), mat_pipe, false)
+	hz._add_puddle(geo, Vector3(0.0, 0.015, -27.0), Vector2(4.2, 4.5))
+	hz._spawn_model(props, PROP_DIR + "barrel.glb", "PipeBarrel_1", Vector3(8.5, 0.0, -23.0), 0.0, Vector3(0.6, 0.9, 0.6))
+	hz._spawn_model(props, PROP_DIR + "pallet.glb", "PipePallet_1", Vector3(-8.2, 0.0, -22.5), 15.0, Vector3(1.2, 0.18, 1.0))
+
+	# 北側泵浦控制室 (x: -8..8, z: -46..-34)
+	hz._add_box(geo, Vector3(16.0, 0.2, 12.0), Vector3(0.0, -0.1, -40.0), mat_floor, true)
+	hz._add_box(geo, Vector3(16.0, 0.2, 12.0), Vector3(0.0, 3.7, -40.0), mat_dark, true)
+	hz._add_box(geo, Vector3(WALL_T, 3.6, 12.0), Vector3(-8.0, 1.8, -40.0), mat_wall, true)
+	hz._add_box(geo, Vector3(WALL_T, 3.6, 12.0), Vector3(8.0, 1.8, -40.0), mat_wall, true)
+	hz._add_box(geo, Vector3(16.0, 3.6, WALL_T), Vector3(0.0, 1.8, -46.0), mat_wall, true)
+	hz._add_omni(lights, Vector3(0.0, 3.2, -40.0), Color(0.80, 0.92, 0.98), 1.15, 11.5, false, false)
+	hz._spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "PumpDesk", Vector3(0.0, 0.0, -44.2), 0.0, Vector3(1.5, 0.78, 0.8))
+	hz._spawn_model(props, PROP_DIR + "computer_screen.glb", "PumpScreen", Vector3(-0.3, 0.78, -44.2), 0.0, Vector3(0.5, 0.45, 0.4))
+	hz._spawn_model(props, PROP_DIR + "shelf_small.glb", "PumpShelf", Vector3(6.8, 0.0, -43.5), -90.0, Vector3(1.2, 1.8, 0.5))
+	hz._spawn_model(props, PROP_DIR + "bucket.glb", "PumpBucket", Vector3(-6.5, 0.0, -44.0), 0.0, Vector3(0.4, 0.5, 0.4))
+	hz._add_note_prop(props, "PumpControlNote", Vector3(0.3, 0.80, -44.2),
+		"閱讀泵浦控制桌上的管線紀錄", "B1 管線洩漏紀錄",
+		"【泵浦房水壓警報】\n\n"
+		+ "B1 北走廊的輸水管線已經嚴重鏽蝕，積水滲漏到停車場和下方的 B2 倉庫。\n"
+		+ "提醒所有工作人員：水泵旁的積水混有重機油，絕對不可飲用。"
+	)
+
+	# 2. 充實 B2 地下洗手間內部 ＋ 東側淋浴間 (68..77.6, 18..38) ＋ 南側清潔儲藏室 (46..64, 38..48)
+	var by := -4.0
+	var rh := 3.2
+	# 原洗手間中央加上兩排更衣長凳
+	for bz in [25.0, 31.0]:
+		hz._add_box(geo, Vector3(4.2, 0.45, 0.65), Vector3(55.5, by + 0.225, bz), mat_dark, true)
+
+	# 東側淋浴間區 (x: 68..77.6, z: 18..38, 避開 x=78 傳說段)
+	hz._add_box(geo, Vector3(9.6, 0.2, 20.0), Vector3(72.8, by - 0.1, 28.0), mat_floor, true)
+	hz._add_box(geo, Vector3(9.6, 0.2, 20.0), Vector3(72.8, by + rh + 0.1, 28.0), mat_dark, true)
+	hz._add_box(geo, Vector3(WALL_T, rh, 20.0), Vector3(77.6, by + rh * 0.5, 28.0), mat_wall, true)
+	hz._add_box(geo, Vector3(9.6, rh, WALL_T), Vector3(72.8, by + rh * 0.5, 18.0), mat_wall, true)
+	hz._add_box(geo, Vector3(9.6, rh, WALL_T), Vector3(72.8, by + rh * 0.5, 38.0), mat_wall, true)
+	for sz in [21.5, 25.0, 28.5]:
+		hz._add_box(geo, Vector3(3.4, 2.1, 0.14), Vector3(75.8, by + 1.05, sz), hz._mat_paint_white, true)
+	hz._add_puddle(geo, Vector3(72.5, by + 0.015, 26.0), Vector2(5.0, 9.0))
+	hz._add_omni(lights, Vector3(72.8, by + rh - 0.3, 28.0), Color(0.74, 0.92, 0.86), 1.1, 11.0, false, true)
+
+	# 南側清潔儲藏室 (x: 46..64, z: 38..48)
+	hz._add_box(geo, Vector3(18.0, 0.2, 10.0), Vector3(55.0, by - 0.1, 43.0), mat_floor, true)
+	hz._add_box(geo, Vector3(18.0, 0.2, 10.0), Vector3(55.0, by + rh + 0.1, 43.0), mat_dark, true)
+	hz._add_box(geo, Vector3(WALL_T, rh, 10.0), Vector3(46.0, by + rh * 0.5, 43.0), mat_wall, true)
+	hz._add_box(geo, Vector3(WALL_T, rh, 10.0), Vector3(64.0, by + rh * 0.5, 43.0), mat_wall, true)
+	hz._add_box(geo, Vector3(18.0, rh, WALL_T), Vector3(55.0, by + rh * 0.5, 48.0), mat_wall, true)
+	hz._add_omni(lights, Vector3(55.0, by + rh - 0.3, 43.0), Color(0.88, 0.92, 0.84), 1.05, 10.5, false, false)
+	hz._spawn_model(props, PROP_DIR + "shelf_small.glb", "JanitorShelf_1", Vector3(48.0, by, 46.8), 180.0, Vector3(1.2, 1.8, 0.5))
+	hz._spawn_model(props, PROP_DIR + "shelf_small.glb", "JanitorShelf_2", Vector3(50.0, by, 46.8), 180.0, Vector3(1.2, 1.8, 0.5))
+	hz._spawn_model(props, PROP_DIR + "barrel.glb", "JanitorBarrel", Vector3(62.2, by, 46.5), 0.0, Vector3(0.6, 0.9, 0.6))
+	hz._spawn_model(props, PROP_DIR + "ladder.glb", "JanitorLadder", Vector3(62.8, by, 40.5), -90.0, Vector3(0.6, 2.2, 0.4))
+	hz._spawn_model(props, PROP_DIR + "bucket.glb", "JanitorBucket", Vector3(55.0, by, 44.0), 0.0, Vector3(0.4, 0.5, 0.4))
+	hz._spawn_model(props, PROP_DIR + "box_closed.glb", "JanitorBox", Vector3(58.0, by, 46.5), 15.0, Vector3(0.7, 0.7, 0.7))
+	hz._add_note_prop(props, "JanitorNote", Vector3(58.0, by + 0.72, 46.5),
+		"閱讀儲藏室箱子上的清潔工備忘錄", "B2 洗手間清潔備忘錄",
+		"【值班備忘】\n\n"
+		+ "東邊淋浴間的排水孔昨晚又堵住了，積水裡全是黑頭髮和鏽渣。\n"
+		+ "另外，如果半夜聽見隔間裡有人在沖水卻沒人出來，千萬別去敲門。"
+	)

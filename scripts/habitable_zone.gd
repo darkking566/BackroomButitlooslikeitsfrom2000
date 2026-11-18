@@ -383,7 +383,9 @@ func _build_north_corridor(geo: StaticBody3D, lights: Node3D, props: Node3D) -> 
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 5.7), Vector3(-10.0, CEIL_H * 0.5, -31.15), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, 1.0, 2.6), Vector3(-10.0, CEIL_H - 0.5, -27.0), MAT_HALL_WALL, true)
 	_add_box(geo, Vector3(WALL_T, CEIL_H, 14.0), Vector3(10.0, CEIL_H * 0.5, -27.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(20.0, CEIL_H, WALL_T), Vector3(0.0, CEIL_H * 0.5, -34.0), MAT_HALL_WALL, true)
+	# 北牆 (z = -34)，x: -3..1 留 4m 開口往北側泵浦控制室
+	_add_box(geo, Vector3(7.0, CEIL_H, WALL_T), Vector3(-6.5, CEIL_H * 0.5, -34.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(9.0, CEIL_H, WALL_T), Vector3(5.5, CEIL_H * 0.5, -34.0), MAT_HALL_WALL, true)
 
 	_add_pipe(geo, Vector3(-9.5, 3.1, -25.0), Vector3(9.5, 3.1, -25.0), 0.14)
 	_add_pipe(geo, Vector3(-9.5, 2.9, -29.0), Vector3(9.5, 2.9, -29.0), 0.11)
@@ -984,8 +986,12 @@ func _build_b2_restroom(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(56.0, by - 0.1, 28.0), MAT_HALL_FLOOR, true)
 	_add_box(geo, Vector3(24.0, 0.2, 20.0), Vector3(56.0, by + rh + 0.1, 28.0), _mat_concrete_dark, true)
 	_add_box(geo, Vector3(WALL_T, rh, 20.0), Vector3(44.0, by + rh * 0.5, 28.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(WALL_T, rh, 20.0), Vector3(68.0, by + rh * 0.5, 28.0), MAT_HALL_WALL, true)
-	_add_box(geo, Vector3(24.0, rh, WALL_T), Vector3(56.0, by + rh * 0.5, 38.0), MAT_HALL_WALL, true)
+	# 東牆 (x = 68) 于 z: 33..36.2 留門洞往東側淋浴間（避開廁所隔間 z:22..32）
+	_add_box(geo, Vector3(WALL_T, rh, 15.0), Vector3(68.0, by + rh * 0.5, 25.5), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(WALL_T, rh, 1.8), Vector3(68.0, by + rh * 0.5, 37.1), MAT_HALL_WALL, true)
+	# 南牆 (z = 38) 于 x: 54..57.5 留 3.5m 開口往清潔儲藏室
+	_add_box(geo, Vector3(10.0, rh, WALL_T), Vector3(49.0, by + rh * 0.5, 38.0), MAT_HALL_WALL, true)
+	_add_box(geo, Vector3(10.5, rh, WALL_T), Vector3(62.75, by + rh * 0.5, 38.0), MAT_HALL_WALL, true)
 
 	# 廁所隔間（東側 x: 60..67.5）
 	for sz in [22.0, 25.0, 28.0, 31.0]:
