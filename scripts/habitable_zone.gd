@@ -239,8 +239,17 @@ func _init_local_materials() -> void:
 
 
 func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
-	# 地板與天花板
-	_add_box(geo, Vector3(48.0, 0.2, 40.0), Vector3(0.0, -0.1, 0.0), MAT_HALL_FLOOR, true)
+	# 地板與天花板（中央天鷹 PS2 展示區 x:-6.8..4.3, z:-17.5..3.5 挖空改由 Blender 濕滑地坪顯示，避免 Z-fighting；碰撞體維持完整 48x40m）
+	_add_box(geo, Vector3(17.2, 0.2, 40.0), Vector3(-15.4, -0.1, 0.0), MAT_HALL_FLOOR, false)
+	_add_box(geo, Vector3(19.7, 0.2, 40.0), Vector3(14.15, -0.1, 0.0), MAT_HALL_FLOOR, false)
+	_add_box(geo, Vector3(11.1, 0.2, 2.5), Vector3(-1.25, -0.1, -18.75), MAT_HALL_FLOOR, false)
+	_add_box(geo, Vector3(11.1, 0.2, 16.5), Vector3(-1.25, -0.1, 11.75), MAT_HALL_FLOOR, false)
+	var floor_col := CollisionShape3D.new()
+	var floor_shape := BoxShape3D.new()
+	floor_shape.size = Vector3(48.0, 0.2, 40.0)
+	floor_col.shape = floor_shape
+	floor_col.position = Vector3(0.0, -0.1, 0.0)
+	geo.add_child(floor_col)
 	_add_box(geo, Vector3(48.0, 0.2, 40.0), Vector3(0.0, CEIL_H + 0.1, 0.0), _mat_concrete_dark, true)
 
 	# 四周外牆（西牆 x=-24 留兩處開口：z:-12.6..-9.4 往休息室、z:9..12.6 往哥特段）
@@ -288,9 +297,9 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	add_child(probe)
 
 	# 積水區（半透明不規則水窪 + 動態波紋反光，可隱約透出底下地磚）
-	_add_puddle(geo, Vector3(-11.0, 0.015, -6.5), Vector2(11.0, 8.0))
-	_add_puddle(geo, Vector3(11.5, 0.015, 7.0), Vector2(10.0, 8.5))
-	_add_puddle(geo, Vector3(0.5, 0.015, 12.5), Vector2(7.0, 6.0))
+	_add_puddle(geo, Vector3(-12.8, 0.024, -6.5), Vector2(9.2, 8.0))
+	_add_puddle(geo, Vector3(11.5, 0.024, 7.0), Vector2(10.0, 8.5))
+	_add_puddle(geo, Vector3(0.5, 0.024, 12.5), Vector2(7.0, 6.0))
 
 	# 頭頂管線
 	_add_pipe(geo, Vector3(-22.0, 3.15, -10.0), Vector3(22.0, 3.15, -10.0), 0.12)
@@ -707,8 +716,8 @@ func _add_box(parent: Node3D, sz: Vector3, pos: Vector3, mat: Material, with_col
 
 
 func _build_parking_lines(geo: StaticBody3D) -> void:
-	# 中央雙黃虛線（保留南側車道；北側中央已由 Blender PS2 輪胎痕與積水地坪取代）
-	for lz in [4.0, 8.0, 12.0, 16.0]:
+	# 中央雙黃虛線（保留南側車道 z>=5.0；北側中央已由 Blender PS2 輪胎痕與積水地坪取代）
+	for lz in [6.0, 10.0, 14.0]:
 		_add_box(geo, Vector3(0.12, 0.008, 2.0), Vector3(-0.18, 0.006, lz), _mat_hazard, false)
 		_add_box(geo, Vector3(0.12, 0.008, 2.0), Vector3(0.18, 0.006, lz), _mat_hazard, false)
 
@@ -847,8 +856,8 @@ func _build_aquila_ps2_wing(geo: StaticBody3D, lights: Node3D) -> void:
 		_add_omni(lights, lp, Color(0.90, 0.95, 1.0), 1.15, 10.5, false, false)
 
 	# 加上兩塊低視角水波反光貼片，讓手電筒與柱燈照到積水時有流動倒影
-	_add_puddle(geo, Vector3(-1.5, 0.014, 0.5), Vector2(4.2, 4.0))
-	_add_puddle(geo, Vector3(1.8, 0.014, -7.5), Vector2(3.6, 5.5))
+	_add_puddle(geo, Vector3(-1.5, 0.026, 0.5), Vector2(4.2, 4.0))
+	_add_puddle(geo, Vector3(1.8, 0.026, -7.5), Vector2(3.6, 5.5))
 
 
 func _apply_ps2_nearest_materials(node: Node) -> void:
