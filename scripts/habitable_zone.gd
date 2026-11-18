@@ -12,6 +12,7 @@ const MAT_VENT_GRILL := preload("res://materials/mat_vent_grill.tres")
 const MAT_FLUORESCENT := preload("res://materials/mat_fluorescent.tres")
 const INTERACT_SCRIPT := preload("res://scripts/interactable_prop.gd")
 const HabitableExpansions := preload("res://scripts/habitable_expansions.gd")
+const HabitableStructures := preload("res://scripts/habitable_structures.gd")
 
 const PROP_DIR := "res://assets/models/props/"
 const MODEL_DIR := "res://assets/models/"
@@ -208,6 +209,9 @@ func _build_habitable_zone() -> void:
 
 	# 14. 擴建各區段至 5 個以上連通房間／子區段
 	HabitableExpansions.build_all(self, geo, lights, props)
+
+	# 15. 為每個區域增加大量結構、建築小品與物件
+	HabitableStructures.populate_all(self, geo, lights, props)
 
 
 func _init_local_materials() -> void:
