@@ -12,3 +12,5 @@
    - 正式輸出遊戲前，需停用 `addons/godot_mcp_toolkit` 外掛並移除 `project.godot` 中的 `MCPRuntimeServer` 自動載入。
 6. **每個階段完成後建立 Git 存檔點**
    - 每次完成一個可驗證的功能或修復後，執行一次本地 `git commit` 留下還原點（不主動 push 到遠端）。
+7. **新層級 Blender → PS2 → Godot 工作流與規範**
+   - 後續製作新層級或重製區段時，先參照 [docs/PS2_LEVEL_PIPELINE.md](docs/PS2_LEVEL_PIPELINE.md)（含座標換算、128px `NEAREST` 貼圖、Blender 5.3 無頭匯出腳本 [tools/aquila_ps2_build.py](tools/aquila_ps2_build.py)、防地板 Z-fighting 挖空規則，以及遊戲內一律使用層級名稱而非 `Level 0` / `Level 1`）。
