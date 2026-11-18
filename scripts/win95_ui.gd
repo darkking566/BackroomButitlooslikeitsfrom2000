@@ -626,6 +626,10 @@ func _build_overlay() -> void:
 			{"name": "12. B2 北側：積水貨櫃區", "pos": Vector3(58.0, -3.95, -22.0), "yaw": 0.0},
 			{"name": "13. B2 南側：地下洗手間", "pos": Vector3(56.0, -3.95, 22.0), "yaw": PI},
 			{"name": "14. 天鷹段：小徑 (The Paths)", "pos": Vector3(-13.0, 0.05, -27.0), "yaw": PI * 0.5},
+			{"name": "15. 哥特段（希波克拉底醫療站）", "pos": Vector3(-28.0, 0.05, 11.0), "yaw": PI * 0.5},
+			{"name": "16. 銜尾段（永無止境施工區）", "pos": Vector3(16.0, 0.05, -24.0), "yaw": 0.0},
+			{"name": "17. 花園段 / 砼苑（植物險地）", "pos": Vector3(58.0, -3.95, -48.0), "yaw": 0.0},
+			{"name": "18. 傳說段（朱漆木與霓虹）", "pos": Vector3(84.0, -3.95, 14.0), "yaw": PI},
 		]
 	else:
 		waypoints = [
@@ -932,16 +936,16 @@ class MapCanvas extends Control:
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
 		if is_habitable_zone:
-			# 宜居地帶 bounds: x [-38 .. +98], z [-48 .. +44]
-			var hnx := (wx + 38.0) / 136.0
-			var hnz := (wz + 48.0) / 92.0
+			# 宜居地帶 bounds: x [-50 .. +100], z [-66 .. +44]
+			var hnx := (wx + 50.0) / 150.0
+			var hnz := (wz + 66.0) / 110.0
 			var hpad := 16.0
 			var hw := size.x - hpad * 2.0
 			var hh := size.y - hpad * 2.0
-			var hscale := minf(hw / (136.0 / 92.0), hh)
-			var hox := (size.x - hscale * (136.0 / 92.0)) * 0.5
+			var hscale := minf(hw / (150.0 / 110.0), hh)
+			var hox := (size.x - hscale * (150.0 / 110.0)) * 0.5
 			var hoy := (size.y - hscale) * 0.5
-			return Vector2(hox + hnx * hscale * (136.0 / 92.0), hoy + hnz * hscale)
+			return Vector2(hox + hnx * hscale * (150.0 / 110.0), hoy + hnz * hscale)
 		# World bounds: x [-112 .. +88], z [-40 .. +106]
 		var nx := (wx + 112.0) / 212.0
 		var nz := (wz + 40.0) / 235.0
@@ -971,6 +975,10 @@ class MapCanvas extends Control:
 			_draw_zone(-36.0, -18.0, -24.0, -4.0, Color(0.26, 0.35, 0.30, 0.92), "員工休息室")
 			_draw_zone(-10.0, -34.0, 10.0, -20.0, Color(0.22, 0.26, 0.30, 0.92), "北側管線走廊")
 			_draw_zone(-32.0, -32.0, -10.0, -22.0, Color(0.32, 0.28, 0.24, 0.92), "小徑 (Paths)")
+			_draw_zone(-48.0, 2.0, -24.0, 20.0, Color(0.68, 0.70, 0.68, 0.92), "哥特段（醫療）")
+			_draw_zone(10.0, -38.0, 28.0, -20.0, Color(0.45, 0.35, 0.20, 0.92), "銜尾段（施工）")
+			_draw_zone(46.0, -64.0, 70.0, -44.0, Color(0.16, 0.45, 0.22, 0.92), "花園段（砼苑）")
+			_draw_zone(78.0, 10.0, 96.0, 28.0, Color(0.48, 0.16, 0.26, 0.92), "傳說段（霓虹）")
 			_draw_zone(-8.0, 20.0, 8.0, 30.0, Color(0.20, 0.25, 0.32, 0.92), "南側積水車道")
 			_draw_zone(-5.0, 30.0, 5.0, 39.0, Color(0.55, 0.45, 0.20, 0.95), "M.E.G. Alpha基地")
 			_draw_zone(24.0, -3.0, 40.0, 3.0, Color(0.36, 0.38, 0.40, 0.92), "斜坡")
