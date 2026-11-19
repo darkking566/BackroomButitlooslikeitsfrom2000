@@ -43,6 +43,7 @@ const SAMPLED_LIGHTS: Array = [
 var _flicker_lights: Array[OmniLight3D] = []
 var _flicker_base: Array[float] = []
 var _flicker_timer: float = 0.0
+var _last_safe_pos: Vector3 = Vector3(0.0, 0.25, 3.0)
 
 
 func _ready() -> void:
@@ -59,7 +60,21 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if Engine.is_editor_hint() or _flicker_lights.is_empty():
+	if Engine.is_editor_hint():
+		return
+
+	# 防掉出地圖外兜底機制：紀錄玩家最後安全立足點，若意外跌出邊界立刻拉回
+	var root := get_parent()
+	if root:
+		var player := root.get_node_or_null("Player") as CharacterBody3D
+		if player:
+			if player.is_on_floor() and player.position.y > -7.5:
+				_last_safe_pos = player.position + Vector3(0.0, 0.2, 0.0)
+			elif player.position.y < -10.5:
+				player.position = _last_safe_pos
+				player.velocity = Vector3.ZERO
+
+	if _flicker_lights.is_empty():
 		return
 	_flicker_timer += delta
 	for i in _flicker_lights.size():
@@ -101,27 +116,37 @@ func _apply_ps2_materials_and_collision(node: Node) -> void:
 		var mi := node as MeshInstance3D
 		var mesh := mi.mesh
 		if mesh != null:
-			for s in mesh.get_surface_count():
-				var mat := mi.get_active_material(s)
-				if mat is StandardMaterial3D:
-					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
-					sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-					var mname := mat.resource_name.to_lower()
-					if "water" in mname:
-						sm.metallic = 0.28
-						sm.roughness = 0.10
-						sm.metallic_specular = 0.88
-					elif "floor_tiles_blue" in mname or "floor_tiles_wave" in mname:
-						sm.metallic = 0.14
-						sm.roughness = 0.28
-						sm.metallic_specular = 0.78
-					elif "glass" in mname:
-						sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-						sm.albedo_color.a = minf(sm.albedo_color.a, 0.45)
-					mi.set_surface_override_material(s, sm)
-			# 為世界幾何、地形與固定設施建立碰撞體；貼花 (Decals) 不建立碰撞
+			var is_clip_bounds := ("ClipBounds" in mi.name)
+			if is_clip_bounds:
+				# 原場景天空盒邊界空氣牆：隱藏外觀，只保留雙面實體碰撞防掉出地圖
+				mi.visible = false
+			else:
+				for s in mesh.get_surface_count():
+					var mat := mi.get_active_material(s)
+					if mat is StandardMaterial3D:
+						var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+						sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+						var mname := mat.resource_name.to_lower()
+						if "water" in mname:
+							sm.metallic = 0.28
+							sm.roughness = 0.10
+							sm.metallic_specular = 0.88
+						elif "floor_tiles_blue" in mname or "floor_tiles_wave" in mname:
+							sm.metallic = 0.14
+							sm.roughness = 0.28
+							sm.metallic_specular = 0.78
+						elif "glass" in mname:
+							sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+							sm.albedo_color.a = minf(sm.albedo_color.a, 0.45)
+						mi.set_surface_override_material(s, sm)
+			# 為世界幾何、空氣牆、地形與固定設施建立雙面碰撞體；貼花 (Decals) 不建立碰撞
 			if not ("Decal" in mi.name):
 				mi.create_trimesh_collision()
+				for col_child in mi.get_children():
+					if col_child is StaticBody3D:
+						for shape_node in col_child.get_children():
+							if shape_node is CollisionShape3D and shape_node.shape is ConcavePolygonShape3D:
+								(shape_node.shape as ConcavePolygonShape3D).backface_collision = true
 	for child in node.get_children():
 		_apply_ps2_materials_and_collision(child)
 
