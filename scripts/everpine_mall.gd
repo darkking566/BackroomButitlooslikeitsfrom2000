@@ -131,16 +131,16 @@ func _build_mall_lights() -> void:
 	lights_root.name = "MallLights"
 	add_child(lights_root)
 
-	# 1. 柔和冬日暮色天光（關閉即時陰影以維持 PS2 效能）
+	# 1. 微弱冬夜月光補光（壓低能量以免無陰影平行光穿透屋頂照亮整個室內）
 	var sky_sun := DirectionalLight3D.new()
 	sky_sun.name = "WinterSkyFill"
 	sky_sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-	sky_sun.light_color = Color(0.68, 0.79, 0.96)
-	sky_sun.light_energy = 0.24
+	sky_sun.light_color = Color(0.55, 0.68, 0.90)
+	sky_sun.light_energy = 0.06
 	sky_sun.shadow_enabled = false
 	lights_root.add_child(sky_sun)
 
-	# 2. 抽樣自原 Blender 場景的商場室內補光（全關陰影，保留暖光與紫色霓虹對比）
+	# 2. 抽樣自原 Blender 場景的商場室內補光（全關陰影，保留明暗對比與手電筒探索感）
 	_flicker_lights.clear()
 	_flicker_base.clear()
 	for i in SAMPLED_LIGHTS.size():
@@ -150,10 +150,10 @@ func _build_mall_lights() -> void:
 		omni.position = item[0]
 		omni.light_color = item[1]
 		var is_purple: bool = item[1].b > 0.95 and item[1].r < 0.7
-		var base_energy := 2.25 if is_purple else 1.72
+		var base_energy := 1.65 if is_purple else 1.15
 		omni.light_energy = base_energy
-		omni.omni_range = 26.0
-		omni.omni_attenuation = 1.32
+		omni.omni_range = 21.0
+		omni.omni_attenuation = 1.55
 		omni.shadow_enabled = false
 		lights_root.add_child(omni)
 		# 讓少數遠處走廊燈帶點微弱日光燈閃爍，增添詭異感
