@@ -29,6 +29,7 @@ func _ready() -> void:
 	_style_materials(inst)
 	_add_collision(inst)
 	_setup_interactives(inst)
+	_build_underground_passage(inst)
 	# 走廊末端與廣場的導航網格之間有 ~2 m 烘不起來的縫（門口立柱），用連結補上，怪物才走得進來
 	var link := NavigationLink3D.new()
 	link.bidirectional = true
@@ -43,72 +44,287 @@ func _ready() -> void:
 var _strata_links_built := false
 
 
-# 由 monster.gd 在全場景導航網格烘焙完成後呼叫：
-# 將地面層 ↔ 高層 ↔ 下沉層 ↔ 地底層 ↔ 疊樓各層的斷開網格用雙向 NavigationLink3D 串起來，
-# 並自動吸附到實際烘焙出的最近可走點，避免因數十公尺垂直落差導致怪物被鎖在單一樓層。
-func build_strata_nav_links(nav_map: RID) -> int:
-	if _strata_links_built:
-		return 0
+# 已改為實體混凝土樓梯井與地下連通通道，不再建立穿越虛空的長距離飛天連結
+func build_strata_nav_links(_nav_map: RID) -> int:
 	_strata_links_built = true
-	# 放寬連結吸附半徑，確保寬闊廣場的大面積導航多邊形也能穩定接上 NavigationLink3D
-	NavigationServer3D.map_set_link_connection_radius(nav_map, 6.0)
-	var pairs: Array = [
-		# 校舍空房東側通道末端 (x=126) ↔ 街道廣場
-		[Vector3(125.0, -1.95, 186.0), Vector3(135.0, -1.95, 186.0)],
-		# 地面層 ↔ 高層
-		[Vector3(135.0, -1.95, 137.0), Vector3(135.0, 18.78, 95.0)],
-		[Vector3(51.0, 18.78, 134.0), Vector3(51.0, 22.74, 134.0)],
-		[Vector3(135.0, 18.78, 95.0), Vector3(270.0, 19.00, -43.0)],
-		[Vector3(135.0, 18.78, 95.0), Vector3(51.0, 18.78, 134.0)],
-		[Vector3(51.0, 18.78, 134.0), Vector3(-6.0, 18.78, 144.0)],
-		[Vector3(78.0, 18.78, 228.0), Vector3(108.0, 18.78, 265.0)],
-		# 地面層 ↔ 下沉層
-		[Vector3(135.0, -1.95, 137.0), Vector3(189.0, -20.35, 119.0)],
-		[Vector3(189.0, -20.35, 119.0), Vector3(165.0, -17.41, 8.0)],
-		[Vector3(189.0, -20.35, 119.0), Vector3(270.0, -20.35, 113.0)],
-		[Vector3(294.0, -20.35, 50.0), Vector3(297.0, -29.49, 2.0)],
-		# 地面層 / 下沉層 ↔ 地底層
-		[Vector3(135.0, -1.95, 195.0), Vector3(126.0, -94.00, 225.0)],
-		[Vector3(189.0, -20.35, 119.0), Vector3(216.0, -80.89, 116.0)],
-		[Vector3(216.0, -80.89, 116.0), Vector3(216.0, -84.70, 116.0)],
-		[Vector3(216.0, -84.70, 116.0), Vector3(240.0, -87.90, 113.0)],
-		[Vector3(240.0, -87.90, 113.0), Vector3(225.0, -91.56, 71.0)],
-		[Vector3(225.0, -91.56, 71.0), Vector3(249.0, -94.31, 122.0)],
-		[Vector3(249.0, -94.31, 122.0), Vector3(252.0, -101.32, 116.0)],
-		[Vector3(252.0, -101.32, 116.0), Vector3(246.0, -101.32, 156.0)],
-		# 地底層內部各區串連（含地底層 13 x=-21, z=280）
-		[Vector3(126.0, -94.00, 225.0), Vector3(90.0, -94.00, 168.0)],
-		[Vector3(126.0, -94.00, 225.0), Vector3(42.0, -94.00, 201.0)],
-		[Vector3(42.0, -94.00, 201.0), Vector3(87.0, -94.00, 271.0)],
-		[Vector3(87.0, -94.00, 271.0), Vector3(-21.0, -94.15, 280.0)],
-		[Vector3(126.0, -94.00, 225.0), Vector3(198.0, -94.00, 298.0)],
-		[Vector3(198.0, -94.00, 298.0), Vector3(222.0, -94.00, 274.0)],
-		[Vector3(222.0, -94.00, 274.0), Vector3(291.0, -94.00, 216.0)],
-		# 疊樓垂直各層串連（y -86 ↔ -94 ↔ -98 ↔ -106 ↔ -111）
-		[Vector3(291.0, -86.08, 216.0), Vector3(291.0, -94.00, 216.0)],
-		[Vector3(291.0, -94.00, 216.0), Vector3(291.0, -98.27, 216.0)],
-		[Vector3(291.0, -98.27, 216.0), Vector3(291.0, -106.19, 216.0)],
-		[Vector3(291.0, -106.19, 216.0), Vector3(291.0, -110.46, 216.0)],
-	]
-	var created := 0
-	for pair in pairs:
-		var raw_a: Vector3 = pair[0]
-		var raw_b: Vector3 = pair[1]
-		var a := NavigationServer3D.map_get_closest_point(nav_map, raw_a)
-		var b := NavigationServer3D.map_get_closest_point(nav_map, raw_b)
-		# 確保兩端都真的吸附到該樓層附近的導航網格，且兩端不重疊
-		if a.distance_to(raw_a) > 6.0 or b.distance_to(raw_b) > 6.0:
+	return 0
+
+
+# --- 實體地下連通工程：空房東側通道 (y=-2) ↔ 19 折混凝土迴轉樓梯井 ↔ 地底層 9 (y=-94) ↔ 地下維修管廊 (y=-98.5) ↔ 地底層 13 (y=-94.2) ---
+func _build_underground_passage(map_root: Node) -> void:
+	# 1. 清理通道與現有房間銜接處的阻擋牆面：地底層 9 入口、分支 B 下坡道、地底層 13 西門
+	_cut_doorway_box(map_root, AABB(Vector3(114.0, -94.0, 215.0), Vector3(10.5, 3.4, 12.5)), false)
+	_cut_doorway_box(map_root, AABB(Vector3(110.0, -98.4, 210.2), Vector3(4.0, 7.6, 13.8)), true)
+	_cut_doorway_box(map_root, AABB(Vector3(-25.8, -94.3, 276.0), Vector3(3.6, 5.0, 8.0)), false)
+
+	var root := Node3D.new()
+	root.name = "UndergroundPassage"
+	add_child(root)
+
+	var mat := StandardMaterial3D.new()
+	var tex := load("res://assets/textures/movie_map/CONCRETEFLOOR027B.png") as Texture2D
+	if tex:
+		mat.albedo_texture = tex
+	mat.albedo_color = Color(0.76, 0.74, 0.70)
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	mat.uv1_triplanar = true
+	mat.uv1_world_triplanar = true
+	mat.uv1_scale = Vector3(0.25, 0.25, 0.25)
+	mat.roughness = 0.95
+
+	var lamp_mat := StandardMaterial3D.new()
+	lamp_mat.albedo_color = Color(1.0, 0.92, 0.78)
+	lamp_mat.emission_enabled = true
+	lamp_mat.emission = Color(1.0, 0.90, 0.72)
+	lamp_mat.emission_energy_multiplier = 1.6
+
+	# 2. 19 折迴轉混凝土樓梯井：x[110..118], z[188..210], y[-2.0 -> -94.05]
+	const Y_TOP := -2.0
+	const Y_BOT := -94.05
+	const FLIGHTS := 19
+	const DROP := (Y_TOP - Y_BOT) / float(FLIGHTS)
+	const THICK := 0.35
+
+	# 頂部入口平台 (y=-2.0, z=188..192, 接 level0_school 南牆門洞 x=114..118)
+	_p_box(root, Vector3(114.0, Y_TOP - THICK * 0.5, 190.0), Vector3(8.0, THICK, 4.2), mat)
+	# 井頂封蓋
+	_p_box(root, Vector3(114.0, 1.3, 199.0), Vector3(8.8, 0.4, 22.8), mat)
+	# 外圍四面井壁
+	_p_box(root, Vector3(109.8, -46.5, 199.0), Vector3(0.4, 96.0, 22.4), mat)  # 西壁
+	_p_box(root, Vector3(118.2, -46.5, 199.0), Vector3(0.4, 96.0, 22.4), mat)  # 東壁
+	# 北壁 (z=187.8)：留出頂部入口門洞 x=114..118, y=-2.0..0.9
+	_p_box(root, Vector3(114.0, -48.25, 187.8), Vector3(8.4, 92.5, 0.4), mat)  # y=-94.5..-2.0
+	_p_box(root, Vector3(112.0, -0.55, 187.8), Vector3(4.2, 3.0, 0.4), mat)    # x=110..114 側牆
+	# 南壁 (z=210.2)：底部 y=-94.05..-90.5 留空接地下通道
+	_p_box(root, Vector3(114.0, -44.5, 210.2), Vector3(8.4, 92.0, 0.4), mat)   # y=-90.5..+1.5
+	# 中央隔牆 (x=114.0, z=192..206)，分隔上下折返坡道
+	_p_box(root, Vector3(114.0, -46.5, 199.0), Vector3(0.3, 95.0, 14.0), mat)
+
+	for i in FLIGHTS:
+		var y0 := Y_TOP - float(i) * DROP
+		var y1 := Y_TOP - float(i + 1) * DROP
+		if i % 2 == 0:
+			# 偶數折：東道 (x=114..118) 由北往南 (z=192 -> 206) 往下
+			_p_ramp_z(root, 116.0, y0, 192.0, y1, 206.0, 3.8, THICK, mat)
+			# 南端折返平台 (z=206..210, x=110..118)
+			_p_box(root, Vector3(114.0, y1 - THICK * 0.5, 208.0), Vector3(8.0, THICK, 4.2), mat)
+		else:
+			# 奇數折：西道 (x=110..114) 由南往北 (z=206 -> 192) 往下
+			_p_ramp_z(root, 112.0, y0, 206.0, y1, 192.0, 3.8, THICK, mat)
+			# 北端折返平台 (z=188..192, x=110..118)
+			_p_box(root, Vector3(114.0, y1 - THICK * 0.5, 190.0), Vector3(8.0, THICK, 4.2), mat)
+		if i % 2 == 0:
+			_p_light(root, Vector3(114.0, y1 + 3.2, 208.0), lamp_mat, 14.0)
+
+	# 3. 分支 A：井底南口 (x=114..118, z=210, y=-94.05) -> 轉角 -> 直通地底層 9 西門 (x=125, z=225)
+	_p_corridor_z(root, 116.0, Y_BOT, 210.0, 223.0, 4.0, 3.4, mat)
+	# 分支 A 轉角 (x=114..118, z=223..227)，東側留空接東西向走廊
+	_p_box(root, Vector3(116.0, Y_BOT - 0.2, 225.0), Vector3(4.4, 0.4, 4.4), mat)
+	_p_box(root, Vector3(116.0, Y_BOT + 3.6, 225.0), Vector3(4.4, 0.4, 4.4), mat)
+	_p_box(root, Vector3(116.0, Y_BOT + 1.7, 227.2), Vector3(4.4, 3.8, 0.4), mat)
+	_p_box(root, Vector3(113.8, Y_BOT + 1.7, 225.0), Vector3(0.4, 3.8, 4.4), mat)
+	_p_corridor_x(root, Y_BOT, 225.0, 118.0, 126.0, 4.0, 3.4, mat)
+	_p_light(root, Vector3(116.0, Y_BOT + 3.1, 220.0), lamp_mat, 14.0)
+
+	# 4. 分支 B：井底西口 (x=110..114, z=210, y=-94.05) -> 下坡到 y=-98.5 地下管廊 -> 上坡進地底層 13 西門 (x=-24, z=280)
+	const Y_TUN := -98.5
+	# 下坡道：x=112, z=210 -> 224, y=-94.05 -> -98.5
+	_p_ramp_z(root, 112.0, Y_BOT, 210.0, Y_TUN, 224.0, 4.0, THICK, mat)
+	_p_box(root, Vector3(109.8, (Y_BOT + Y_TUN) * 0.5 + 1.5, 217.0), Vector3(0.4, 8.0, 14.4), mat)
+	_p_box(root, Vector3(114.0, (Y_BOT + Y_TUN) * 0.5 + 1.5, 217.0), Vector3(0.3, 8.0, 14.4), mat)
+	_p_box(root, Vector3(112.0, Y_BOT + 3.6, 217.0), Vector3(4.4, 0.4, 14.4), mat)
+	# 轉角平台 (x=110..114, z=224..228, y=-98.5)
+	_p_box(root, Vector3(112.0, Y_TUN - THICK * 0.5, 226.0), Vector3(4.4, THICK, 4.4), mat)
+	_p_box(root, Vector3(112.0, Y_TUN + 3.6, 226.0), Vector3(4.4, 0.4, 4.4), mat)
+	_p_box(root, Vector3(112.0, Y_TUN + 1.7, 228.2), Vector3(4.4, 3.8, 0.4), mat)
+	_p_box(root, Vector3(114.2, Y_TUN + 1.7, 226.0), Vector3(0.4, 3.8, 4.4), mat)
+	# 東西向主維修管廊：y=-98.5, z=224..228, x=-38..110（停在西轉角前，避免擋住南轉彎）
+	_p_corridor_x(root, Y_TUN, 226.0, -38.0, 110.0, 4.0, 3.4, mat)
+	for lx in [-30.0, -6.0, 18.0, 42.0, 66.0, 90.0]:
+		_p_light(root, Vector3(lx, Y_TUN + 3.1, 226.0), lamp_mat, 18.0)
+	# 西端轉角平台 (x=-42..-38, z=224..228, y=-98.5)
+	_p_box(root, Vector3(-40.0, Y_TUN - THICK * 0.5, 226.0), Vector3(4.4, THICK, 4.4), mat)
+	_p_box(root, Vector3(-40.0, Y_TUN + 3.6, 226.0), Vector3(4.4, 0.4, 4.4), mat)
+	_p_box(root, Vector3(-40.0, Y_TUN + 1.7, 223.8), Vector3(4.4, 3.8, 0.4), mat)
+	_p_box(root, Vector3(-42.2, Y_TUN + 1.7, 226.0), Vector3(0.4, 3.8, 4.4), mat)
+	# 南北向管廊：y=-98.5, x=-42..-38, z=228..278
+	_p_corridor_z(root, -40.0, Y_TUN, 228.0, 278.0, 4.0, 3.4, mat)
+	for lz in [242.0, 260.0]:
+		_p_light(root, Vector3(-40.0, Y_TUN + 3.1, lz), lamp_mat, 18.0)
+	# 南西轉角平台 (x=-42..-38, z=278..282, y=-98.5)
+	_p_box(root, Vector3(-40.0, Y_TUN - THICK * 0.5, 280.0), Vector3(4.4, THICK, 4.4), mat)
+	_p_box(root, Vector3(-40.0, Y_TUN + 3.6, 280.0), Vector3(4.4, 0.4, 4.4), mat)
+	_p_box(root, Vector3(-40.0, Y_TUN + 1.7, 282.2), Vector3(4.4, 3.8, 0.4), mat)
+	_p_box(root, Vector3(-42.2, Y_TUN + 1.7, 280.0), Vector3(0.4, 3.8, 4.4), mat)
+	# 上坡道進地底層 13 西門：z=280, x=-38 -> -24.2, y=-98.5 -> -94.20（與地底層 13 地板平齊銜接）
+	_p_ramp_x(root, -38.0, Y_TUN, -24.2, -94.20, 280.0, 4.0, THICK, mat)
+	_p_box(root, Vector3(-23.4, -94.20 - THICK * 0.5, 280.0), Vector3(2.4, THICK, 4.0), mat)  # 門檻踏板，穩接進地底層 13 地面
+	_p_box(root, Vector3(-31.1, (Y_TUN - 94.18) * 0.5 + 1.5, 277.8), Vector3(14.4, 8.2, 0.4), mat)
+	_p_box(root, Vector3(-31.1, (Y_TUN - 94.18) * 0.5 + 1.5, 282.2), Vector3(14.4, 8.2, 0.4), mat)
+	_p_box(root, Vector3(-31.1, -90.6, 280.0), Vector3(14.4, 0.4, 4.8), mat)
+	_p_light(root, Vector3(-31.0, -92.0, 280.0), lamp_mat, 15.0)
+	print("[BlenderMap] 已建成實體地下通道（19 折迴轉樓梯井 + 地下維修管廊 → 地底層 9 / 地底層 13）")
+
+
+func _p_box(parent: Node3D, pos: Vector3, sz: Vector3, mat: Material) -> void:
+	var body := StaticBody3D.new()
+	body.position = pos
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = sz
+	mi.mesh = bm
+	mi.material_override = mat
+	body.add_child(mi)
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = sz
+	cs.shape = sh
+	body.add_child(cs)
+	parent.add_child(body)
+
+
+func _p_ramp_z(parent: Node3D, xc: float, y0: float, z0: float, y1: float, z1: float, width: float, thick: float, mat: Material) -> void:
+	var dz := z1 - z0
+	var dy := y1 - y0
+	var horiz := absf(dz)
+	var length := sqrt(horiz * horiz + dy * dy) + 0.4
+	var pitch := -atan2(dy, dz) if dz > 0.0 else atan2(dy, -dz)
+	var normal := Vector3(0.0, cos(pitch), sin(pitch))
+	var center := Vector3(xc, (y0 + y1) * 0.5, (z0 + z1) * 0.5) - normal * (thick * 0.5)
+	var body := StaticBody3D.new()
+	body.position = center
+	body.rotation = Vector3(pitch, 0.0, 0.0)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(width, thick, length)
+	mi.mesh = bm
+	mi.material_override = mat
+	body.add_child(mi)
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(width, thick, length)
+	cs.shape = sh
+	body.add_child(cs)
+	parent.add_child(body)
+
+
+func _p_ramp_x(parent: Node3D, x0: float, y0: float, x1: float, y1: float, zc: float, width: float, thick: float, mat: Material) -> void:
+	var dx := x1 - x0
+	var dy := y1 - y0
+	var horiz := absf(dx)
+	var length := sqrt(horiz * horiz + dy * dy) + 0.4
+	var roll := atan2(dy, dx) if dx > 0.0 else -atan2(dy, -dx)
+	var normal := Vector3(-sin(roll), cos(roll), 0.0)
+	var center := Vector3((x0 + x1) * 0.5, (y0 + y1) * 0.5, zc) - normal * (thick * 0.5)
+	var body := StaticBody3D.new()
+	body.position = center
+	body.rotation = Vector3(0.0, 0.0, roll)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(length, thick, width)
+	mi.mesh = bm
+	mi.material_override = mat
+	body.add_child(mi)
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(length, thick, width)
+	cs.shape = sh
+	body.add_child(cs)
+	parent.add_child(body)
+
+
+func _p_corridor_z(parent: Node3D, xc: float, floor_y: float, z0: float, z1: float, width: float, height: float, mat: Material) -> void:
+	var length := absf(z1 - z0)
+	var zc := (z0 + z1) * 0.5
+	var hw := width * 0.5
+	_p_box(parent, Vector3(xc, floor_y - 0.2, zc), Vector3(width + 0.8, 0.4, length + 0.4), mat)
+	_p_box(parent, Vector3(xc, floor_y + height + 0.2, zc), Vector3(width + 0.8, 0.4, length + 0.4), mat)
+	_p_box(parent, Vector3(xc - hw - 0.2, floor_y + height * 0.5, zc), Vector3(0.4, height, length), mat)
+	_p_box(parent, Vector3(xc + hw + 0.2, floor_y + height * 0.5, zc), Vector3(0.4, height, length), mat)
+
+
+func _p_corridor_x(parent: Node3D, floor_y: float, zc: float, x0: float, x1: float, width: float, height: float, mat: Material) -> void:
+	var length := absf(x1 - x0)
+	var xc := (x0 + x1) * 0.5
+	var hw := width * 0.5
+	_p_box(parent, Vector3(xc, floor_y - 0.2, zc), Vector3(length + 0.4, 0.4, width + 0.8), mat)
+	_p_box(parent, Vector3(xc, floor_y + height + 0.2, zc), Vector3(length + 0.4, 0.4, width + 0.8), mat)
+	_p_box(parent, Vector3(xc, floor_y + height * 0.5, zc - hw - 0.2), Vector3(length, height, 0.4), mat)
+	_p_box(parent, Vector3(xc, floor_y + height * 0.5, zc + hw + 0.2), Vector3(length, height, 0.4), mat)
+
+
+func _p_light(parent: Node3D, pos: Vector3, lamp_mat: Material, radius: float) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.6, 0.08, 0.35)
+	mi.mesh = bm
+	mi.material_override = lamp_mat
+	mi.position = pos
+	parent.add_child(mi)
+	var lt := OmniLight3D.new()
+	lt.position = pos + Vector3(0.0, -0.4, 0.0)
+	lt.light_color = Color(1.0, 0.92, 0.76)
+	lt.light_energy = 1.1
+	lt.omni_range = radius
+	lt.shadow_enabled = false
+	parent.add_child(lt)
+
+
+# 在 BlenderMap 的指定範圍內挖開門洞（drop_all=false 時只移除垂直牆面，保留地板與天花板）
+func _cut_doorway_box(root: Node, box: AABB, drop_all: bool) -> void:
+	var cut_n := 0
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh := (mi as MeshInstance3D).mesh
+		if mesh == null:
 			continue
-		if a.distance_to(b) < 0.6:
+		var xf: Transform3D = (mi as MeshInstance3D).global_transform
+		var changed := false
+		var surfs: Array = []
+		for s in mesh.get_surface_count():
+			var arr := mesh.surface_get_arrays(s)
+			var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+			if idx.is_empty():
+				idx.resize(verts.size())
+				for k in verts.size():
+					idx[k] = k
+			var keep := PackedInt32Array()
+			for t in range(0, idx.size(), 3):
+				var a := xf * verts[idx[t]]
+				var b := xf * verts[idx[t + 1]]
+				var c := xf * verts[idx[t + 2]]
+				var cen := (a + b + c) / 3.0
+				var drop := false
+				if box.has_point(cen):
+					var nrm := (b - a).cross(c - a).normalized()
+					drop = true if drop_all else absf(nrm.y) < 0.65
+				if drop:
+					changed = true
+					cut_n += 1
+				else:
+					keep.append(idx[t])
+					keep.append(idx[t + 1])
+					keep.append(idx[t + 2])
+			arr[Mesh.ARRAY_INDEX] = keep
+			surfs.append([arr, mesh.surface_get_material(s), (mi as MeshInstance3D).get_surface_override_material(s)])
+		if not changed:
 			continue
-		var nav_link := NavigationLink3D.new()
-		nav_link.bidirectional = true
-		nav_link.start_position = a
-		nav_link.end_position = b
-		add_child(nav_link)
-		created += 1
-	print("[BlenderMap] 已建立 %d/%d 條跨層導航連結 (nav_iter=%d)" % [created, pairs.size(), NavigationServer3D.map_get_iteration_id(nav_map)])
-	return created
+		mesh = mesh.duplicate() as ArrayMesh
+		mesh.clear_surfaces()
+		for i in surfs.size():
+			var a2: Array = surfs[i][0]
+			if (a2[Mesh.ARRAY_INDEX] as PackedInt32Array).size() == 0:
+				continue
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a2)
+			var si := mesh.get_surface_count() - 1
+			mesh.surface_set_material(si, surfs[i][1])
+			(mi as MeshInstance3D).set_surface_override_material(si, surfs[i][2])
+		(mi as MeshInstance3D).mesh = mesh
+		for ch in mi.get_children():
+			if ch is StaticBody3D:
+				ch.free()
+		_add_collision(mi)
+	print("[BlenderMap] 地下通道門洞挖開三角形: ", cut_n)
 
 
 func _build_details() -> void:

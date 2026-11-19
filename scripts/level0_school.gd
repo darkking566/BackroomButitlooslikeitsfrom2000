@@ -343,7 +343,7 @@ func _build_map_link() -> void:
 	_slab(92.0, 184.0, 126.0, 188.0, -2.0, _m_cream)
 	_slab(92.0, 184.0, 126.0, 188.0, 0.9, _m_ceilb)
 	_wall(true, 184.0, 92.0, 126.0, -2.0, 2.9, _m_beige)
-	_wall(true, 188.0, 92.0, 126.0, -2.0, 2.9, _m_beige)
+	_wall(true, 188.0, 92.0, 126.0, -2.0, 2.9, _m_beige, [Vector4(114.0, 118.0, -2.0, 0.7)])
 	for lx in [98.0, 106.0, 114.0, 122.0]:
 		var t: float = (lx - 98.0) / 24.0
 		_glow(Vector3(lx, 0.82, 186.0), Vector3(1.2, 0.05, 0.5), _m_lamp)
