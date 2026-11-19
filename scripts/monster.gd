@@ -98,11 +98,14 @@ var _climb_last_wall_pos := Vector3.ZERO
 var _current_speed := 0.0
 var _current_target := Vector3.ZERO
 var _nav_unreachable := false
+var _nav_links_count := 0
 var _last_blocker_name := ""
 var _last_blocker_pos := Vector3.ZERO
 var _stuck_anchor := Vector3.ZERO
 var _stuck_t := 0.0
 var _stuck_cooldown := 0.0
+var _pos_history: Array[Vector3] = []
+var _pos_sample_t := 0.0
 var _is_stuck := false
 var _last_stuck_reason := ""
 var _stuck_reports: Array[Dictionary] = []
@@ -199,10 +202,17 @@ func _bake_navmesh() -> void:
 
 
 func _finalize_navmesh() -> void:
+	var nav_map := get_world_3d().navigation_map
+	# 等到 NavigationServer3D 真正完成首次同步（iteration_id > 0），map_get_closest_point 才會回傳有效座標
+	var tries := 0
+	while NavigationServer3D.map_get_iteration_id(nav_map) == 0 and tries < 60:
+		await get_tree().physics_frame
+		tries += 1
 	await get_tree().physics_frame
 	var bm := get_parent().get_node_or_null("BlenderMap")
 	if bm and bm.has_method("build_strata_nav_links"):
-		bm.call("build_strata_nav_links", get_world_3d().navigation_map)
+		_nav_links_count = int(bm.call("build_strata_nav_links", nav_map))
+		await get_tree().physics_frame
 		await get_tree().physics_frame
 	_nav_ready = true
 
@@ -469,6 +479,12 @@ func _probe_wall_toward(target_pos: Vector3, max_dist: float = 1.6) -> Dictionar
 
 
 func _start_climb(normal: Vector3, hit_pos: Vector3) -> void:
+	# 目標在明顯下方且自己腳下已經是實心地板時，不要再貼牆往下爬（避免貼牆→撞地板→彈開→再貼牆的抽搐迴圈）
+	if _current_target.y < global_position.y - 1.2:
+		var floor_under := _raycast_world(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * 1.1)
+		if not floor_under.is_empty() and floor_under.normal.y > 0.6:
+			_climb_cooldown = maxf(_climb_cooldown, 0.8)
+			return
 	_climbing = true
 	_climb_normal = normal.normalized()
 	_climb_dir = Vector3.UP
@@ -862,6 +878,8 @@ func _reset() -> void:
 	_nav_unreachable = false
 	_stuck_anchor = _home
 	_stuck_t = 0.0
+	_pos_history.clear()
+	_pos_sample_t = 0.0
 	_is_stuck = false
 	_repath_t = 0.0
 	state = State.PATROL
@@ -1360,8 +1378,37 @@ func _update_stuck_monitor(delta: float, wants_move: bool, target_pos: Vector3) 
 	if not wants_move:
 		_stuck_anchor = global_position
 		_stuck_t = 0.0
+		_pos_history.clear()
+		_pos_sample_t = 0.0
 		_is_stuck = false
 		return
+
+	# 1. 滾動視窗偵測「原地抽搐 / 來回震盪」（每 0.2 秒取樣一次，保留最近 2.0 秒）
+	_pos_sample_t += delta
+	if _pos_sample_t >= 0.2:
+		_pos_sample_t = 0.0
+		_pos_history.append(global_position)
+		if _pos_history.size() > 10:
+			_pos_history.remove_at(0)
+		if _pos_history.size() >= 10:
+			var origin := _pos_history[0]
+			var max_spread := 0.0
+			for pt in _pos_history:
+				max_spread = maxf(max_spread, origin.distance_to(pt))
+			var net_move := global_position.distance_to(origin)
+			var spread_limit := 1.8 if (_ui and _ui.frenzy_mode) else 0.9
+			if max_spread < spread_limit and net_move < spread_limit * 0.75:
+				_is_stuck = true
+				var osc_reason := "原地抽搐／來回卡死（2 秒內活動範圍僅 %.2fm）" % max_spread
+				if _nav_unreachable:
+					osc_reason = "導航不可達且原地抽搐（2 秒內活動範圍 %.2fm）" % max_spread
+				_report_stuck(osc_reason, target_pos)
+				_pos_history.clear()
+				_stuck_t = 0.0
+				_stuck_anchor = global_position
+				return
+
+	# 2. 靜止卡死偵測
 	if global_position.distance_to(_stuck_anchor) >= STUCK_MIN_MOVE:
 		_stuck_anchor = global_position
 		_stuck_t = 0.0
@@ -1491,10 +1538,10 @@ func get_debug_hud_text(layer_name: String) -> String:
 		var last: Dictionary = _stuck_reports[_stuck_reports.size() - 1]
 		var lp: Vector3 = last["pos"]
 		stuck_line = " 最近卡點 #%d: (%.1f, %.1f, %.1f) %s" % [int(last["id"]), lp.x, lp.y, lp.z, last["reason"]]
-	return " [怪物除錯模式] %s | %s | 移速: %.1f m/s\n 怪物座標: (%.2f, %.2f, %.2f) | 距玩家: %.1fm\n 目標座標: (%.2f, %.2f, %.2f) | 導航: %s\n 攀爬: %s | 已記錄卡點: %d 處\n%s" % [
+	return " [怪物除錯模式] %s | %s | 移速: %.1f m/s\n 怪物座標: (%.2f, %.2f, %.2f) | 距玩家: %.1fm\n 目標座標: (%.2f, %.2f, %.2f) | 導航: %s (跨層連結: %d)\n 攀爬: %s | 已記錄卡點: %d 處\n%s" % [
 		layer_name, _state_label(), _current_speed,
 		p.x, p.y, p.z, dist,
-		t.x, t.y, t.z, nav_txt,
+		t.x, t.y, t.z, nav_txt, _nav_links_count,
 		climb_txt, _stuck_reports.size(),
 		stuck_line
 	]

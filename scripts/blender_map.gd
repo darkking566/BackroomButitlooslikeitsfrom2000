@@ -50,7 +50,11 @@ func build_strata_nav_links(nav_map: RID) -> int:
 	if _strata_links_built:
 		return 0
 	_strata_links_built = true
+	# 放寬連結吸附半徑，確保寬闊廣場的大面積導航多邊形也能穩定接上 NavigationLink3D
+	NavigationServer3D.map_set_link_connection_radius(nav_map, 3.5)
 	var pairs: Array = [
+		# 校舍空房東側通道末端 (x=126) ↔ 街道廣場
+		[Vector3(125.0, -1.95, 186.0), Vector3(135.0, -1.95, 186.0)],
 		# 地面層 ↔ 高層
 		[Vector3(135.0, -1.95, 137.0), Vector3(135.0, 18.78, 95.0)],
 		[Vector3(51.0, 18.78, 134.0), Vector3(51.0, 22.74, 134.0)],
@@ -103,6 +107,7 @@ func build_strata_nav_links(nav_map: RID) -> int:
 		nav_link.end_position = b
 		add_child(nav_link)
 		created += 1
+	print("[BlenderMap] 已建立 %d/%d 條跨層導航連結 (nav_iter=%d)" % [created, pairs.size(), NavigationServer3D.map_get_iteration_id(nav_map)])
 	return created
 
 
