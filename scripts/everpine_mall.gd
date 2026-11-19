@@ -127,7 +127,10 @@ func _apply_ps2_materials_and_collision(node: Node) -> void:
 						var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
 						sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 						var mname := mat.resource_name.to_lower()
-						if "water" in mname:
+						if "DoorJambs" in mi.name or "jamb" in mname:
+							# 自動補封的門框內壁採雙面顯示，不論從門內或門外看都完全密合
+							sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+						elif "water" in mname:
 							sm.metallic = 0.28
 							sm.roughness = 0.10
 							sm.metallic_specular = 0.88
