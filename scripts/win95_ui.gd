@@ -2,6 +2,7 @@ extends CanvasLayer
 
 const Level0WikiData := preload("res://scripts/level0_wiki_data.gd")
 const HabitableWikiData := preload("res://scripts/habitable_wiki_data.gd")
+const EverpineWikiData := preload("res://scripts/everpine_wiki_data.gd")
 
 signal window_closed
 signal restart_requested
@@ -47,6 +48,7 @@ var _map_canvas: Control
 
 var _is_open: bool = false
 var _is_habitable_zone: bool = false
+var _is_everpine_mall: bool = false
 
 const SETTINGS_PATH := "user://settings.cfg"
 var frenzy_mode := false  # 狂暴追獵模式：怪物讀這個值
@@ -113,8 +115,8 @@ func show_wiki_archive() -> void:
 	_note_group.visible = false
 	_exit_dialog.visible = false
 
-	var entries: Array[Dictionary] = HabitableWikiData.ENTRIES if _is_habitable_zone else Level0WikiData.ENTRIES
-	var win_title := "M.E.G. Archive - 宜居地帶 (Wiki)" if _is_habitable_zone else "M.E.G. Archive - 閾界 (Wiki)"
+	var entries: Array[Dictionary] = EverpineWikiData.ENTRIES if _is_everpine_mall else (HabitableWikiData.ENTRIES if _is_habitable_zone else Level0WikiData.ENTRIES)
+	var win_title := "M.E.G. Archive - 常青商場 (Wiki)" if _is_everpine_mall else ("M.E.G. Archive - 宜居地帶 (Wiki)" if _is_habitable_zone else "M.E.G. Archive - 閾界 (Wiki)")
 	_left_title_label.text = " " + win_title
 	_clear_file_list()
 
@@ -245,7 +247,7 @@ func show_map(player_pos: Vector3, player_yaw: float) -> void:
 	_exit_dialog.visible = false
 	_map_group.visible = true
 	_map_canvas.set_player(player_pos, player_yaw)
-	_task_label.text = " M.E.G. 宜居地帶導航地圖與快速傳送" if _is_habitable_zone else " M.E.G. 閾界導航地圖與快速傳送"
+	_task_label.text = " M.E.G. 常青商場導航地圖與快速傳送" if _is_everpine_mall else (" M.E.G. 宜居地帶導航地圖與快速傳送" if _is_habitable_zone else " M.E.G. 閾界導航地圖與快速傳送")
 
 
 func show_settings() -> void:
@@ -553,7 +555,8 @@ func _build_overlay() -> void:
 
 	var cur_scene := get_tree().current_scene
 	_is_habitable_zone = cur_scene != null and cur_scene.scene_file_path.ends_with("habitable_zone.tscn")
-	var map_title := "M.E.G. Map & Fast Travel - 宜居地帶" if _is_habitable_zone else "M.E.G. Map & Fast Travel - 閾界"
+	_is_everpine_mall = cur_scene != null and cur_scene.scene_file_path.ends_with("everpine_mall.tscn")
+	var map_title := "M.E.G. Map & Fast Travel - 常青商場" if _is_everpine_mall else ("M.E.G. Map & Fast Travel - 宜居地帶" if _is_habitable_zone else "M.E.G. Map & Fast Travel - 閾界")
 	var map_win := _create_win95_window(Vector2(760, 480), map_title)
 	_map_group.add_child(map_win["frame"])
 	var map_content: VBoxContainer = map_win["content"]
@@ -571,6 +574,7 @@ func _build_overlay() -> void:
 
 	_map_canvas = MapCanvas.new()
 	_map_canvas.is_habitable_zone = _is_habitable_zone
+	_map_canvas.is_everpine_mall = _is_everpine_mall
 	_map_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map_frame.add_child(_map_canvas)
@@ -589,19 +593,27 @@ func _build_overlay() -> void:
 	tp_list.add_theme_constant_override("separation", 4)
 	tp_scroll.add_child(tp_list)
 
-	var btn_layer_switch := _make_win95_button(" → 切換層級：前往「宜居地帶」 ")
-	if _is_habitable_zone:
-		btn_layer_switch.text = " ← 切換層級：返回「閾界」 "
-		btn_layer_switch.pressed.connect(func():
+	if _is_habitable_zone or _is_everpine_mall:
+		var btn_to_thresh := _make_win95_button(" ← 切換層級：前往「閾界」 ")
+		btn_to_thresh.pressed.connect(func():
 			close_popup()
 			get_tree().change_scene_to_file("res://scenes/backrooms_level0_test.tscn")
 		)
-	else:
-		btn_layer_switch.pressed.connect(func():
+		tp_list.add_child(btn_to_thresh)
+	if not _is_habitable_zone:
+		var btn_to_hab := _make_win95_button(" → 切換層級：前往「宜居地帶」 ")
+		btn_to_hab.pressed.connect(func():
 			close_popup()
 			get_tree().change_scene_to_file("res://scenes/habitable_zone.tscn")
 		)
-	tp_list.add_child(btn_layer_switch)
+		tp_list.add_child(btn_to_hab)
+	if not _is_everpine_mall:
+		var btn_to_mall := _make_win95_button(" → 切換層級：前往「常青商場」 ")
+		btn_to_mall.pressed.connect(func():
+			close_popup()
+			get_tree().change_scene_to_file("res://scenes/everpine_mall.tscn")
+		)
+		tp_list.add_child(btn_to_mall)
 
 	var tp_hdr := Label.new()
 	tp_hdr.text = " 點擊區域立即傳送："
@@ -610,7 +622,18 @@ func _build_overlay() -> void:
 	tp_list.add_child(tp_hdr)
 
 	var waypoints: Array[Dictionary] = []
-	if _is_habitable_zone:
+	if _is_everpine_mall:
+		waypoints = [
+			{"name": "1. 中央松林中庭（藍磚區）", "pos": Vector3(0.0, 0.15, 3.0), "yaw": 0.0},
+			{"name": "2. 下沉美食區（B1 藍磚中庭）", "pos": Vector3(-34.0, -4.75, -15.0), "yaw": 0.0},
+			{"name": "3. 東側商店街大道", "pos": Vector3(25.0, 0.15, -10.0), "yaw": -PI * 0.5},
+			{"name": "4. 東南商業迴廊", "pos": Vector3(45.0, 0.15, 25.0), "yaw": PI},
+			{"name": "5. 南側黑毯影廳區", "pos": Vector3(20.0, 0.15, 45.0), "yaw": PI},
+			{"name": "6. 西側波紋磚長廊", "pos": Vector3(-50.0, 0.15, 0.0), "yaw": PI * 0.5},
+			{"name": "7. 西南木地板休憩區", "pos": Vector3(-50.0, 0.15, 30.0), "yaw": PI},
+			{"name": "8. 西端混凝土展廳", "pos": Vector3(-80.0, 0.15, -10.0), "yaw": PI * 0.5},
+		]
+	elif _is_habitable_zone:
 		waypoints = [
 			{"name": "1. 入口卸貨區（服務桌）", "pos": Vector3(0.0, 0.05, 4.0), "yaw": 0.0},
 			{"name": "2. 西區配電箱（復電點 A）", "pos": Vector3(-21.5, 0.05, -3.5), "yaw": PI * 0.5},
@@ -902,6 +925,7 @@ class MapCanvas extends Control:
 	var _player_yaw: float = 0.0
 	var _street_pts: Array[Vector3] = []
 	var is_habitable_zone: bool = false
+	var is_everpine_mall: bool = false
 
 	func set_street_points(pts: Array[Vector3]) -> void:
 		_street_pts = pts
@@ -935,6 +959,18 @@ class MapCanvas extends Control:
 			draw_arc(q, 5.0, 0.0, TAU, 16, Color.WHITE, 1.2)
 
 	func _world_to_map(wx: float, wz: float) -> Vector2:
+		if is_everpine_mall:
+			# 常青商場 bounds: x [-100 .. +65], z [-50 .. +65]
+			var enx := (wx + 100.0) / 165.0
+			var enz := (wz + 50.0) / 115.0
+			var epad := 16.0
+			var ew := size.x - epad * 2.0
+			var eh := size.y - epad * 2.0
+			var eratio := 165.0 / 115.0
+			var escale := minf(ew / eratio, eh)
+			var eox := (size.x - escale * eratio) * 0.5
+			var eoy := (size.y - escale) * 0.5
+			return Vector2(eox + enx * escale * eratio, eoy + enz * escale)
 		if is_habitable_zone:
 			# 宜居地帶 bounds: x [-74 .. +110], z [-86 .. +62]
 			var hnx := (wx + 74.0) / 184.0
@@ -970,6 +1006,20 @@ class MapCanvas extends Control:
 			draw_string(ThemeDB.fallback_font, p1 + Vector2(4, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.95, 0.95))
 
 	func _draw() -> void:
+		if is_everpine_mall:
+			_draw_zone(-18.0, -18.0, 18.0, 18.0, Color(0.20, 0.42, 0.62, 0.92), "中央松林中庭")
+			_draw_zone(-48.0, -32.0, -20.0, -4.0, Color(0.16, 0.34, 0.56, 0.92), "B1 下沉藍磚美食區")
+			_draw_zone(18.0, -22.0, 56.0, 12.0, Color(0.54, 0.48, 0.36, 0.92), "東側商店街")
+			_draw_zone(32.0, 12.0, 58.0, 38.0, Color(0.46, 0.40, 0.32, 0.92), "東南迴廊")
+			_draw_zone(2.0, 26.0, 36.0, 56.0, Color(0.18, 0.18, 0.22, 0.95), "南側黑毯影廳區")
+			_draw_zone(-66.0, -14.0, -18.0, 14.0, Color(0.26, 0.46, 0.52, 0.92), "西側波紋磚長廊")
+			_draw_zone(-64.0, 14.0, -34.0, 44.0, Color(0.44, 0.32, 0.22, 0.92), "西南木地板區")
+			_draw_zone(-92.0, -28.0, -66.0, 16.0, Color(0.36, 0.38, 0.42, 0.92), "西端混凝土展廳")
+			var epm := _world_to_map(_player_pos.x, _player_pos.z)
+			var efwd := Vector2(-sin(_player_yaw), -cos(_player_yaw))
+			draw_circle(epm, 5.0, Color(1.0, 0.2, 0.2))
+			draw_line(epm, epm + efwd * 12.0, Color(1.0, 0.9, 0.2), 2.0)
+			return
 		if is_habitable_zone:
 			_draw_zone(-24.0, -20.0, 24.0, 20.0, Color(0.28, 0.31, 0.35, 0.92), "天鷹段（主停車場）")
 			_draw_zone(-36.0, -18.0, -24.0, -4.0, Color(0.26, 0.35, 0.30, 0.92), "員工休息室")

@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://b83jylfin52ew"]
+
+[ext_resource type="Material" uid="uid://cixaxdbgv3kbd" path="res://materials/mat_ps2_post.tres" id="1_cd4hp"]
+[ext_resource type="Script" uid="uid://gms3y0yeqn4p" path="res://scripts/win95_ui.gd" id="2_f3ow7"]
+[ext_resource type="Script" uid="uid://b7i8s4kdkfpjk" path="res://scripts/ambient_hum.gd" id="3_1m3na"]
+[ext_resource type="Script" path="res://scripts/everpine_mall.gd" id="4_mvc8p"]
+
+[sub_resource type="Environment" id="Environment_jf7qk"]
+background_mode = 1
+background_color = Color(0.11, 0.15, 0.2, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.4, 0.46, 0.54, 1)
+ambient_light_energy = 0.42
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.18, 0.23, 0.28, 1)
+fog_density = 0.014
+adjustment_enabled = true
+adjustment_saturation = 0.84
+
+[node name="EverpineMallRoot" type="Node3D" unique_id=1902372120]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1734452960]
+environment = SubResource("Environment_jf7qk")
+
+[node name="PS2PostLayer" type="CanvasLayer" parent="." unique_id=407139498]
+
+[node name="PS2Filter" type="ColorRect" parent="PS2PostLayer" unique_id=1199762596]
+material = ExtResource("1_cd4hp")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Win95UI" type="CanvasLayer" parent="." unique_id=1580121155]
+script = ExtResource("2_f3ow7")
+
+[node name="AmbientHum" type="AudioStreamPlayer" parent="." unique_id=1864755277]
+script = ExtResource("3_1m3na")
+
+[node name="EverpineMall" type="Node3D" parent="." unique_id=923326357]
+script = ExtResource("4_mvc8p")
