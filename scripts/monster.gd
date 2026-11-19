@@ -194,26 +194,30 @@ func _bake_navmesh() -> void:
 	var src := NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(nm, src, get_parent())
 	NavigationServer3D.bake_from_source_geometry_data_async(nm, src, func() -> void:
+		var nav_map := get_world_3d().navigation_map
+		var before_iter := NavigationServer3D.map_get_iteration_id(nav_map)
 		var region := NavigationRegion3D.new()
 		region.navigation_mesh = nm
 		get_parent().add_child(region)
-		_finalize_navmesh.call_deferred()
+		_finalize_navmesh.call_deferred(before_iter)
 	)
 
 
-func _finalize_navmesh() -> void:
+func _finalize_navmesh(before_iter: int) -> void:
 	var nav_map := get_world_3d().navigation_map
-	# 等到 NavigationServer3D 真正完成首次同步（iteration_id > 0），map_get_closest_point 才會回傳有效座標
+	# 必須等到「加入 NavigationRegion3D 之後」的 iteration_id 增加，網格才真的同步完成
 	var tries := 0
-	while NavigationServer3D.map_get_iteration_id(nav_map) == 0 and tries < 60:
+	while NavigationServer3D.map_get_iteration_id(nav_map) <= before_iter and tries < 120:
 		await get_tree().physics_frame
 		tries += 1
-	await get_tree().physics_frame
 	var bm := get_parent().get_node_or_null("BlenderMap")
 	if bm and bm.has_method("build_strata_nav_links"):
+		var link_before := NavigationServer3D.map_get_iteration_id(nav_map)
 		_nav_links_count = int(bm.call("build_strata_nav_links", nav_map))
-		await get_tree().physics_frame
-		await get_tree().physics_frame
+		var t2 := 0
+		while NavigationServer3D.map_get_iteration_id(nav_map) <= link_before and t2 < 30:
+			await get_tree().physics_frame
+			t2 += 1
 	_nav_ready = true
 
 
@@ -1439,8 +1443,9 @@ func _report_stuck(reason: String, target_pos: Vector3) -> void:
 	_stuck_cooldown = 2.5
 	var layer_name := _current_layer_name()
 	for rep in _stuck_reports:
-		if rep["layer"] == layer_name and rep["pos"].distance_to(global_position) < STUCK_DEDUP_RADIUS and rep["reason"] == reason:
+		if rep["layer"] == layer_name and rep["pos"].distance_to(global_position) < STUCK_DEDUP_RADIUS:
 			rep["count"] = int(rep["count"]) + 1
+			rep["reason"] = reason
 			rep["target"] = target_pos
 			rep["blocker"] = _last_blocker_name
 			if _ui and _ui.monster_debug_mode:
@@ -1484,8 +1489,8 @@ func _spawn_stuck_marker(rep: Dictionary) -> void:
 	if not _debug_markers_root:
 		return
 	var marker := Node3D.new()
-	marker.global_position = rep["pos"]
 	_debug_markers_root.add_child(marker)
+	marker.global_position = rep["pos"]
 
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
