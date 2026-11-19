@@ -264,16 +264,162 @@ func _build_mall_interactables() -> void:
 	col.position = Vector3(0.0, 0.75, 0.0)
 	kiosk.add_child(col)
 
-	kiosk.set("prompt_text", "[E] 查閱「常青商場」M.E.G. 導覽終端")
-	kiosk.set("interact_callback", func(ui: Node) -> void:
-		if ui and ui.has_method("show_note"):
-			ui.call(
-				"show_note",
-				"M.E.G. 商場導覽終端 — 常青商場",
-				"【層級名稱：常青商場】\n\n"
-				+ "• 你目前位於「中央松林中庭（藍磚區）」。\n"
-				+ "• 本商場為封閉式復古購物中心，包含東側商店街、南側黑毯區、西側波紋磚長廊與西北下沉藍磚美食區。\n"
-				+ "• 按 [M] 開啟 M.E.G. 地圖可快速傳送至各區段，或切換前往「閾界」與「宜居地帶」。\n"
-				+ "• 按 [F] 可開關手電筒探索較暗的店面與走廊。"
-			)
+	kiosk.set("prompt_text", "查閱「常青商場」M.E.G. 導覽終端")
+	kiosk.set("interaction_type", "note")
+	kiosk.set("window_title", "M.E.G. 商場導覽終端 — 常青商場")
+	kiosk.set("body_text",
+		"【層級名稱：常青商場】\n\n"
+		+ "• 你目前位於「中央松林中庭（藍磚區）」。\n"
+		+ "• 空間裂隙出口：\n"
+		+ "  1. 中庭西北暗角有一扇滲出黃光與潮濕地毯的「員工暗門」，可切入「閾界」。\n"
+		+ "  2. B1 下沉藍磚美食區有一扇滲水的「地下停車場安全門」，可前往「宜居地帶」。\n"
+		+ "• 按 [M] 開啟 M.E.G. 地圖可快速傳送，按 [F] 開關手電筒。"
 	)
+
+	# --- 創意實體出口 1：通往「閾界」的泛黃嗡鳴員工暗門（中庭西北角，黃地毯與黃光從門縫滲出）---
+	_build_threshold_backdoor_portal(props)
+
+	# --- 創意實體出口 2：通往「宜居地帶」的 B1 地下停車場安全門（B1 下沉藍磚區，濕水泥與警示條）---
+	_build_habitable_parking_portal(props)
+
+
+func _build_threshold_backdoor_portal(props: Node3D) -> void:
+	var portal := StaticBody3D.new()
+	portal.name = "PortalToThreshold"
+	portal.position = Vector3(-7.4, 0.0, -5.6)
+	portal.rotation_degrees = Vector3(0.0, 35.0, 0.0)
+	portal.set_script(INTERACT_SCRIPT)
+	portal.set("prompt_text", "側身擠進泛黃嗡鳴的員工暗門（切入「閾界」）")
+	portal.set_meta("on_interact", func(_player: Node) -> void:
+		get_tree().change_scene_to_file("res://scenes/backrooms_level0_test.tscn")
+	)
+	props.add_child(portal)
+
+	var mat_frame := StandardMaterial3D.new()
+	mat_frame.albedo_color = Color(0.58, 0.50, 0.24)
+	mat_frame.roughness = 0.9
+
+	var mat_door := StandardMaterial3D.new()
+	mat_door.albedo_color = Color(0.46, 0.36, 0.22)
+	mat_door.roughness = 0.85
+
+	var mat_yellow_glow := StandardMaterial3D.new()
+	mat_yellow_glow.albedo_color = Color(1.0, 0.92, 0.45)
+	mat_yellow_glow.emission_enabled = true
+	mat_yellow_glow.emission = Color(1.0, 0.90, 0.38)
+	mat_yellow_glow.emission_energy_multiplier = 2.6
+
+	var mat_carpet_bleed := StandardMaterial3D.new()
+	mat_carpet_bleed.albedo_color = Color(0.62, 0.54, 0.22)
+	mat_carpet_bleed.roughness = 0.96
+
+	# 門框（左右柱＋上楣）
+	for spec in [
+		[Vector3(0.14, 2.4, 0.22), Vector3(-0.68, 1.2, 0.0), mat_frame],
+		[Vector3(0.14, 2.4, 0.22), Vector3(0.68, 1.2, 0.0), mat_frame],
+		[Vector3(1.50, 0.18, 0.24), Vector3(0.0, 2.38, 0.0), mat_frame],
+		# 門後泛黃日光燈裂縫背板
+		[Vector3(1.22, 2.28, 0.06), Vector3(0.0, 1.15, -0.06), mat_yellow_glow],
+		# 滲出門縫的潮濕黃色地毯（抬高 2.5cm 防 Z-fighting）
+		[Vector3(1.55, 0.03, 1.35), Vector3(0.0, 0.025, 0.62), mat_carpet_bleed],
+	]:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = spec[0]
+		mi.mesh = bm
+		mi.position = spec[1]
+		mi.material_override = spec[2]
+		portal.add_child(mi)
+
+	# 微微推開一絲縫隙的木門扇
+	var leaf := MeshInstance3D.new()
+	var leaf_box := BoxMesh.new()
+	leaf_box.size = Vector3(1.12, 2.24, 0.07)
+	leaf.mesh = leaf_box
+	leaf.position = Vector3(-0.12, 1.12, 0.16)
+	leaf.rotation_degrees = Vector3(0.0, -24.0, 0.0)
+	leaf.material_override = mat_door
+	portal.add_child(leaf)
+
+	var glow := OmniLight3D.new()
+	glow.position = Vector3(0.0, 1.35, 0.45)
+	glow.light_color = Color(1.0, 0.90, 0.42)
+	glow.light_energy = 1.65
+	glow.omni_range = 7.5
+	glow.shadow_enabled = false
+	portal.add_child(glow)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(1.55, 2.45, 0.65)
+	col.shape = shape
+	col.position = Vector3(0.0, 1.22, 0.05)
+	portal.add_child(col)
+
+
+func _build_habitable_parking_portal(props: Node3D) -> void:
+	var portal := StaticBody3D.new()
+	portal.name = "PortalToHabitableZone"
+	portal.position = Vector3(-28.5, -4.88, -11.5)
+	portal.rotation_degrees = Vector3(0.0, -55.0, 0.0)
+	portal.set_script(INTERACT_SCRIPT)
+	portal.set("prompt_text", "推開潮濕的地下停車場安全門（前往「宜居地帶」）")
+	portal.set_meta("on_interact", func(_player: Node) -> void:
+		get_tree().change_scene_to_file("res://scenes/habitable_zone.tscn")
+	)
+	props.add_child(portal)
+
+	var mat_steel := StandardMaterial3D.new()
+	mat_steel.albedo_color = Color(0.24, 0.27, 0.30)
+	mat_steel.metallic = 0.65
+	mat_steel.roughness = 0.48
+
+	var mat_hazard := StandardMaterial3D.new()
+	mat_hazard.albedo_color = Color(0.85, 0.64, 0.12)
+	mat_hazard.roughness = 0.7
+
+	var mat_amber := StandardMaterial3D.new()
+	mat_amber.albedo_color = Color(1.0, 0.62, 0.18)
+	mat_amber.emission_enabled = true
+	mat_amber.emission = Color(1.0, 0.56, 0.14)
+	mat_amber.emission_energy_multiplier = 2.4
+
+	var mat_wet_conc := StandardMaterial3D.new()
+	mat_wet_conc.albedo_color = Color(0.16, 0.20, 0.24)
+	mat_wet_conc.metallic = 0.28
+	mat_wet_conc.roughness = 0.12
+	mat_wet_conc.metallic_specular = 0.88
+
+	for spec in [
+		# 厚重鋼製防盜安全門與門框
+		[Vector3(1.56, 2.52, 0.22), Vector3(0.0, 1.26, -0.05), mat_hazard],
+		[Vector3(1.32, 2.34, 0.14), Vector3(0.0, 1.17, 0.04), mat_steel],
+		# 推桿門把
+		[Vector3(0.95, 0.08, 0.10), Vector3(0.0, 1.05, 0.14), mat_hazard],
+		# 門頂琥珀色「PARKING」燈箱
+		[Vector3(0.92, 0.22, 0.18), Vector3(0.0, 2.66, 0.08), mat_amber],
+		# 從門底滲出的潮濕停車場積水水泥片（抬高 2.5cm 防 Z-fighting）
+		[Vector3(1.85, 0.03, 1.55), Vector3(0.0, 0.025, 0.72), mat_wet_conc],
+	]:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = spec[0]
+		mi.mesh = bm
+		mi.position = spec[1]
+		mi.material_override = spec[2]
+		portal.add_child(mi)
+
+	var glow := OmniLight3D.new()
+	glow.position = Vector3(0.0, 2.35, 0.55)
+	glow.light_color = Color(1.0, 0.64, 0.24)
+	glow.light_energy = 1.85
+	glow.omni_range = 8.5
+	glow.shadow_enabled = false
+	portal.add_child(glow)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(1.60, 2.55, 0.50)
+	col.shape = shape
+	col.position = Vector3(0.0, 1.28, 0.04)
+	portal.add_child(col)

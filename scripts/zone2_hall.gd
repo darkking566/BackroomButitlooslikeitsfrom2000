@@ -138,6 +138,7 @@ func _build_zone2() -> void:
 
 	_build_column_note()
 	_build_exit_door(lights)
+	_build_everpine_portal(lights)
 
 	var trigger := Area3D.new()
 	trigger.name = "Zone2AtmosphereTrigger"
@@ -284,3 +285,74 @@ func _add_omni(parent: Node3D, pos: Vector3, col: Color, energy: float, rng: flo
 	light.omni_range = rng
 	light.shadow_enabled = shadow
 	parent.add_child(light)
+
+
+func _build_everpine_portal(lights: Node3D) -> void:
+	# 創意實體出口：Zone 2 南牆上「不該存在的結霜商場櫥窗自動門」（通往「常青商場」）
+	var portal := StaticBody3D.new()
+	portal.name = "EverpineMallFrostedDoor"
+	portal.position = Vector3(35.9, 0.0, 16.65)
+	portal.set_script(INTERACT_SCRIPT)
+	portal.set("prompt_text", "推開結霜的商場自動門（切入「常青商場」）")
+	portal.set_meta("on_interact", func(_player: Node) -> void:
+		get_tree().change_scene_to_file("res://scenes/everpine_mall.tscn")
+	)
+	add_child(portal)
+
+	var mat_frame := StandardMaterial3D.new()
+	mat_frame.albedo_color = Color(0.18, 0.22, 0.28)
+	mat_frame.metallic = 0.65
+	mat_frame.roughness = 0.40
+
+	var mat_frosted := StandardMaterial3D.new()
+	mat_frosted.albedo_color = Color(0.28, 0.56, 0.74)
+	mat_frosted.emission_enabled = true
+	mat_frosted.emission = Color(0.22, 0.52, 0.76)
+	mat_frosted.emission_energy_multiplier = 1.65
+	mat_frosted.roughness = 0.25
+
+	var mat_neon := StandardMaterial3D.new()
+	mat_neon.albedo_color = Color(0.45, 0.95, 1.0)
+	mat_neon.emission_enabled = true
+	mat_neon.emission = Color(0.35, 0.92, 1.0)
+	mat_neon.emission_energy_multiplier = 2.8
+
+	var mat_pine := StandardMaterial3D.new()
+	mat_pine.albedo_color = Color(0.08, 0.24, 0.16)
+	mat_pine.roughness = 0.9
+
+	var mat_blue_tile := StandardMaterial3D.new()
+	mat_blue_tile.albedo_color = Color(0.22, 0.42, 0.64)
+	mat_blue_tile.metallic = 0.14
+	mat_blue_tile.roughness = 0.28
+
+	for spec in [
+		# 雙開自動門鋁框
+		[Vector3(2.50, 2.55, 0.18), Vector3(0.0, 1.275, 0.06), mat_frame],
+		# 左右結霜玻璃門扇
+		[Vector3(1.06, 2.28, 0.08), Vector3(-0.58, 1.16, -0.02), mat_frosted],
+		[Vector3(1.06, 2.28, 0.08), Vector3(0.58, 1.16, -0.02), mat_frosted],
+		# 門頂冰藍霓虹商場招牌條
+		[Vector3(2.35, 0.24, 0.18), Vector3(0.0, 2.70, -0.04), mat_neon],
+		# 玻璃內若隱若現的三株深綠松樹剪影
+		[Vector3(0.32, 0.95, 0.04), Vector3(-0.58, 0.85, -0.06), mat_pine],
+		[Vector3(0.38, 1.20, 0.04), Vector3(0.58, 0.95, -0.06), mat_pine],
+		# 從商場門底滲出到灰色大廳的藍色地磚（抬高 2.5cm 防 Z-fighting）
+		[Vector3(2.80, 0.03, 1.85), Vector3(0.0, 0.025, -0.95), mat_blue_tile],
+	]:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = spec[0]
+		mi.mesh = bm
+		mi.position = spec[1]
+		mi.material_override = spec[2]
+		portal.add_child(mi)
+
+	_add_omni(lights, Vector3(35.9, 2.2, 15.6), Color(0.38, 0.86, 1.0), 1.8, 9.5, false)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(2.55, 2.60, 0.55)
+	col.shape = shape
+	col.position = Vector3(0.0, 1.30, -0.05)
+	portal.add_child(col)

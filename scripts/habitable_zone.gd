@@ -387,6 +387,9 @@ func _build_main_garage(geo: StaticBody3D, lights: Node3D, props: Node3D) -> voi
 	ret_body.add_child(ret_col)
 	props.add_child(ret_body)
 
+	# 通往「常青商場」的地下停車場連通道（天鷹段東北牆，藍磚從門縫滲出到水泥地）
+	_build_everpine_mall_portal(lights, props)
+
 
 func _build_north_corridor(geo: StaticBody3D, lights: Node3D, props: Node3D) -> void:
 	# 北側管線走廊 (x: -10..10, z: -34..-20)：改用 Blender 低面數 PS2 結構模組，底層只留無形地板碰撞箱以防止 Z-fighting
@@ -1574,3 +1577,66 @@ func _build_lore_district(geo: StaticBody3D, lights: Node3D, props: Node3D) -> v
 	_spawn_model(props, MODEL_DIR + "retro_office_desk.glb", "LoreModernDesk", Vector3(87.0, by, 36.8), 180.0, Vector3(1.5, 0.78, 0.8))
 	_spawn_model(props, PROP_DIR + "computer_screen.glb", "LoreModernScreen", Vector3(87.0, by + 0.78, 36.8), 180.0, Vector3(0.5, 0.45, 0.4))
 	_add_wiki_terminal(props, "LoreWikiTerminal", Vector3(87.0, by + 1.0, 36.8), Vector3(0.65, 0.65, 0.65), "使用走廊盡頭的終端機查閱檔案庫")
+
+
+func _build_everpine_mall_portal(lights: Node3D, props: Node3D) -> void:
+	# 創意實體出口：天鷹段東北牆「滲出藍磚的商場手扶梯連通道」（通往「常青商場」）
+	var portal := StaticBody3D.new()
+	portal.name = "EverpineMallAccessDoor"
+	portal.position = Vector3(17.5, 0.0, -19.55)
+	portal.set_script(INTERACT_SCRIPT)
+	portal.set("prompt_text", "穿過滲出藍磚的商場連通道（前往「常青商場」）")
+	portal.set_meta("on_interact", func(_player: Node) -> void:
+		get_tree().change_scene_to_file("res://scenes/everpine_mall.tscn")
+	)
+	props.add_child(portal)
+
+	var mat_steel := StandardMaterial3D.new()
+	mat_steel.albedo_color = Color(0.32, 0.36, 0.42)
+	mat_steel.metallic = 0.72
+	mat_steel.roughness = 0.38
+
+	var mat_glass := StandardMaterial3D.new()
+	mat_glass.albedo_color = Color(0.24, 0.56, 0.76)
+	mat_glass.emission_enabled = true
+	mat_glass.emission = Color(0.20, 0.54, 0.78)
+	mat_glass.emission_energy_multiplier = 1.6
+
+	var mat_sign := StandardMaterial3D.new()
+	mat_sign.albedo_color = Color(0.35, 0.96, 0.86)
+	mat_sign.emission_enabled = true
+	mat_sign.emission = Color(0.30, 0.94, 0.84)
+	mat_sign.emission_energy_multiplier = 2.6
+
+	var mat_blue_tile := StandardMaterial3D.new()
+	mat_blue_tile.albedo_color = Color(0.20, 0.42, 0.64)
+	mat_blue_tile.metallic = 0.16
+	mat_blue_tile.roughness = 0.24
+
+	for spec in [
+		# 不鏽鋼商場連通道門框
+		[Vector3(2.40, 2.50, 0.24), Vector3(0.0, 1.25, -0.05), mat_steel],
+		# 左右發光玻璃門扇
+		[Vector3(0.98, 2.18, 0.08), Vector3(-0.54, 1.15, 0.08), mat_glass],
+		[Vector3(0.98, 2.18, 0.08), Vector3(0.54, 1.15, 0.08), mat_glass],
+		# 頂部青綠色「MALL ACCESS」燈箱
+		[Vector3(2.10, 0.26, 0.20), Vector3(0.0, 2.68, 0.08), mat_sign],
+		# 從商場滲流到潮濕停車場地面的藍色方磚（抬高 2.5cm 防 Z-fighting）
+		[Vector3(2.85, 0.03, 2.10), Vector3(0.0, 0.025, 1.05), mat_blue_tile],
+	]:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = spec[0]
+		mi.mesh = bm
+		mi.position = spec[1]
+		mi.material_override = spec[2]
+		portal.add_child(mi)
+
+	_add_omni(lights, Vector3(17.5, 2.35, -18.3), Color(0.34, 0.90, 0.96), 1.85, 10.5, false, false)
+
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(2.45, 2.55, 0.55)
+	col.shape = shape
+	col.position = Vector3(0.0, 1.28, 0.05)
+	portal.add_child(col)
