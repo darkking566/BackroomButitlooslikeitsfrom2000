@@ -57,6 +57,14 @@ func _ready() -> void:
 				if player:
 					player.position = Vector3(0.0, 0.25, 3.0)
 					root.add_child.call_deferred(player)
+		if root and root.get_node_or_null("Monster") == null:
+			var monster_script := load("res://scripts/monster.gd")
+			if monster_script:
+				var monster := Node3D.new()
+				monster.name = "Monster"
+				monster.position = Vector3(24.0, 0.05, -8.0)
+				monster.set_script(monster_script)
+				root.add_child.call_deferred(monster)
 
 
 func _process(delta: float) -> void:
