@@ -89,13 +89,19 @@ func _style_and_collide(n: Node, old: Node) -> void:
 			inv.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			inv.albedo_color = Color(0, 0, 0, 0)
 			mi.set_surface_override_material(i, inv)
+			# 天空盒與邊界工具面隱藏外觀，但保留空氣牆碰撞以防走出地圖外
+			if solid and (nm.contains("SKY") or nm.contains("TOOLS")):
+				_collide_surface(mi, i, old, nm)
 			continue
 		var d := m.duplicate() as StandardMaterial3D
 		d.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 		d.normal_enabled = false
 		d.roughness = 1.0
 		d.metallic = 0.0
-		d.albedo_texture = PixelStyle.pixelate(d.albedo_texture, 0.95, 0.95)  # 新地圖貼圖在生成時已經調暗過
+		if "AutoSealedDoorJambs" in String(mi.name) or nm == "AUTOJAMBTRIM":
+			d.cull_mode = BaseMaterial3D.CULL_DISABLED
+		else:
+			d.albedo_texture = PixelStyle.pixelate(d.albedo_texture, 0.95, 0.95)  # 新地圖貼圖在生成時已經調暗過
 		if nm.contains("LIGHT_NEON") or nm.contains("LIGHTS_ON"):
 			d.emission_enabled = true
 			d.emission = Color(1.0, 0.95, 0.75)
