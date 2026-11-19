@@ -3,20 +3,21 @@
 [ext_resource type="Material" uid="uid://cixaxdbgv3kbd" path="res://materials/mat_ps2_post.tres" id="1_cd4hp"]
 [ext_resource type="Script" uid="uid://gms3y0yeqn4p" path="res://scripts/win95_ui.gd" id="2_f3ow7"]
 [ext_resource type="Script" uid="uid://b7i8s4kdkfpjk" path="res://scripts/ambient_hum.gd" id="3_1m3na"]
-[ext_resource type="Script" path="res://scripts/everpine_mall.gd" id="4_mvc8p"]
+[ext_resource type="Script" uid="uid://wq3au2vgdhvr" path="res://scripts/everpine_mall.gd" id="4_mvc8p"]
 
 [sub_resource type="Environment" id="Environment_jf7qk"]
 background_mode = 1
-background_color = Color(0.11, 0.15, 0.2, 1)
+background_color = Color(0.07, 0.1, 0.15, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.4, 0.46, 0.54, 1)
-ambient_light_energy = 0.42
+ambient_light_color = Color(0.3, 0.37, 0.48, 1)
+ambient_light_energy = 0.22
 tonemap_mode = 2
 fog_enabled = true
-fog_light_color = Color(0.18, 0.23, 0.28, 1)
-fog_density = 0.014
+fog_light_color = Color(0.11, 0.15, 0.21, 1)
+fog_density = 0.022
 adjustment_enabled = true
-adjustment_saturation = 0.84
+adjustment_contrast = 1.08
+adjustment_saturation = 0.78
 
 [node name="EverpineMallRoot" type="Node3D" unique_id=1902372120]
 

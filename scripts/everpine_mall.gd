@@ -40,6 +40,11 @@ const SAMPLED_LIGHTS: Array = [
 ]
 
 
+var _flicker_lights: Array[OmniLight3D] = []
+var _flicker_base: Array[float] = []
+var _flicker_timer: float = 0.0
+
+
 func _ready() -> void:
 	_build_everpine_mall()
 	if not Engine.is_editor_hint():
@@ -53,6 +58,19 @@ func _ready() -> void:
 					root.add_child.call_deferred(player)
 
 
+func _process(delta: float) -> void:
+	if Engine.is_editor_hint() or _flicker_lights.is_empty():
+		return
+	_flicker_timer += delta
+	for i in _flicker_lights.size():
+		var l := _flicker_lights[i]
+		if not is_instance_valid(l):
+			continue
+		var wave := sin(_flicker_timer * (6.5 + float(i) * 2.9) + float(i) * 1.9)
+		var jitter := 1.0 if wave > -0.82 else 0.32
+		l.light_energy = _flicker_base[i] * jitter
+
+
 func _build_everpine_mall() -> void:
 	if get_node_or_null("EverpineMallModel") == null:
 		_build_mall_model()
@@ -60,6 +78,8 @@ func _build_everpine_mall() -> void:
 		_build_mall_lights()
 	if get_node_or_null("MallInteractables") == null:
 		_build_mall_interactables()
+	if get_node_or_null("MallReflectionProbes") == null:
+		_build_reflection_probes()
 
 
 func _build_mall_model() -> void:
@@ -88,8 +108,13 @@ func _apply_ps2_materials_and_collision(node: Node) -> void:
 					sm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 					var mname := mat.resource_name.to_lower()
 					if "water" in mname:
-						sm.metallic = 0.25
-						sm.roughness = 0.12
+						sm.metallic = 0.28
+						sm.roughness = 0.10
+						sm.metallic_specular = 0.88
+					elif "floor_tiles_blue" in mname or "floor_tiles_wave" in mname:
+						sm.metallic = 0.14
+						sm.roughness = 0.28
+						sm.metallic_specular = 0.78
 					elif "glass" in mname:
 						sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 						sm.albedo_color.a = minf(sm.albedo_color.a, 0.45)
@@ -110,23 +135,54 @@ func _build_mall_lights() -> void:
 	var sky_sun := DirectionalLight3D.new()
 	sky_sun.name = "WinterSkyFill"
 	sky_sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-	sky_sun.light_color = Color(0.76, 0.84, 0.96)
-	sky_sun.light_energy = 0.34
+	sky_sun.light_color = Color(0.68, 0.79, 0.96)
+	sky_sun.light_energy = 0.24
 	sky_sun.shadow_enabled = false
 	lights_root.add_child(sky_sun)
 
-	# 2. 抽樣自原 Blender 場景的商場室內補光（全關陰影）
+	# 2. 抽樣自原 Blender 場景的商場室內補光（全關陰影，保留暖光與紫色霓虹對比）
+	_flicker_lights.clear()
+	_flicker_base.clear()
 	for i in SAMPLED_LIGHTS.size():
 		var item: Array = SAMPLED_LIGHTS[i]
 		var omni := OmniLight3D.new()
 		omni.name = "MallLight_%02d" % i
 		omni.position = item[0]
 		omni.light_color = item[1]
-		omni.light_energy = 1.45
-		omni.omni_range = 24.0
-		omni.omni_attenuation = 1.35
+		var is_purple: bool = item[1].b > 0.95 and item[1].r < 0.7
+		var base_energy := 2.25 if is_purple else 1.72
+		omni.light_energy = base_energy
+		omni.omni_range = 26.0
+		omni.omni_attenuation = 1.32
 		omni.shadow_enabled = false
 		lights_root.add_child(omni)
+		# 讓少數遠處走廊燈帶點微弱日光燈閃爍，增添詭異感
+		if i in [5, 10, 15, 19]:
+			_flicker_lights.append(omni)
+			_flicker_base.append(base_energy)
+
+
+func _build_reflection_probes() -> void:
+	# 反射探針必須在模型與燈光都建立之後才加入（見 PS2_LEVEL_PIPELINE.md）
+	var probes := Node3D.new()
+	probes.name = "MallReflectionProbes"
+	add_child(probes)
+
+	var atrium_probe := ReflectionProbe.new()
+	atrium_probe.name = "AtriumReflectionProbe"
+	atrium_probe.position = Vector3(0.0, 4.2, 0.0)
+	atrium_probe.size = Vector3(48.0, 16.0, 48.0)
+	atrium_probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	atrium_probe.intensity = 0.65
+	probes.add_child(atrium_probe)
+
+	var b1_probe := ReflectionProbe.new()
+	b1_probe.name = "B1FoodCourtReflectionProbe"
+	b1_probe.position = Vector3(-34.0, -1.0, -15.0)
+	b1_probe.size = Vector3(36.0, 14.0, 36.0)
+	b1_probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	b1_probe.intensity = 0.65
+	probes.add_child(b1_probe)
 
 
 func _build_mall_interactables() -> void:
