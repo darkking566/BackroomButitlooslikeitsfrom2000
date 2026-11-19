@@ -40,6 +40,72 @@ func _ready() -> void:
 	_init_street_audio()
 
 
+var _strata_links_built := false
+
+
+# 由 monster.gd 在全場景導航網格烘焙完成後呼叫：
+# 將地面層 ↔ 高層 ↔ 下沉層 ↔ 地底層 ↔ 疊樓各層的斷開網格用雙向 NavigationLink3D 串起來，
+# 並自動吸附到實際烘焙出的最近可走點，避免因數十公尺垂直落差導致怪物被鎖在單一樓層。
+func build_strata_nav_links(nav_map: RID) -> int:
+	if _strata_links_built:
+		return 0
+	_strata_links_built = true
+	var pairs: Array = [
+		# 地面層 ↔ 高層
+		[Vector3(135.0, -1.95, 137.0), Vector3(135.0, 18.78, 95.0)],
+		[Vector3(51.0, 18.78, 134.0), Vector3(51.0, 22.74, 134.0)],
+		[Vector3(135.0, 18.78, 95.0), Vector3(270.0, 19.00, -43.0)],
+		[Vector3(135.0, 18.78, 95.0), Vector3(51.0, 18.78, 134.0)],
+		[Vector3(51.0, 18.78, 134.0), Vector3(-6.0, 18.78, 144.0)],
+		[Vector3(78.0, 18.78, 228.0), Vector3(108.0, 18.78, 265.0)],
+		# 地面層 ↔ 下沉層
+		[Vector3(135.0, -1.95, 137.0), Vector3(189.0, -20.35, 119.0)],
+		[Vector3(189.0, -20.35, 119.0), Vector3(165.0, -17.41, 8.0)],
+		[Vector3(189.0, -20.35, 119.0), Vector3(270.0, -20.35, 113.0)],
+		[Vector3(294.0, -20.35, 50.0), Vector3(297.0, -29.49, 2.0)],
+		# 地面層 / 下沉層 ↔ 地底層
+		[Vector3(135.0, -1.95, 195.0), Vector3(126.0, -94.00, 225.0)],
+		[Vector3(189.0, -20.35, 119.0), Vector3(216.0, -80.89, 116.0)],
+		[Vector3(216.0, -80.89, 116.0), Vector3(216.0, -84.70, 116.0)],
+		[Vector3(216.0, -84.70, 116.0), Vector3(240.0, -87.90, 113.0)],
+		[Vector3(240.0, -87.90, 113.0), Vector3(225.0, -91.56, 71.0)],
+		[Vector3(225.0, -91.56, 71.0), Vector3(249.0, -94.31, 122.0)],
+		[Vector3(249.0, -94.31, 122.0), Vector3(252.0, -101.32, 116.0)],
+		[Vector3(252.0, -101.32, 116.0), Vector3(246.0, -101.32, 156.0)],
+		# 地底層內部各區串連（含地底層 13 x=-21, z=280）
+		[Vector3(126.0, -94.00, 225.0), Vector3(90.0, -94.00, 168.0)],
+		[Vector3(126.0, -94.00, 225.0), Vector3(42.0, -94.00, 201.0)],
+		[Vector3(42.0, -94.00, 201.0), Vector3(87.0, -94.00, 271.0)],
+		[Vector3(87.0, -94.00, 271.0), Vector3(-21.0, -94.15, 280.0)],
+		[Vector3(126.0, -94.00, 225.0), Vector3(198.0, -94.00, 298.0)],
+		[Vector3(198.0, -94.00, 298.0), Vector3(222.0, -94.00, 274.0)],
+		[Vector3(222.0, -94.00, 274.0), Vector3(291.0, -94.00, 216.0)],
+		# 疊樓垂直各層串連（y -86 ↔ -94 ↔ -98 ↔ -106 ↔ -111）
+		[Vector3(291.0, -86.08, 216.0), Vector3(291.0, -94.00, 216.0)],
+		[Vector3(291.0, -94.00, 216.0), Vector3(291.0, -98.27, 216.0)],
+		[Vector3(291.0, -98.27, 216.0), Vector3(291.0, -106.19, 216.0)],
+		[Vector3(291.0, -106.19, 216.0), Vector3(291.0, -110.46, 216.0)],
+	]
+	var created := 0
+	for pair in pairs:
+		var raw_a: Vector3 = pair[0]
+		var raw_b: Vector3 = pair[1]
+		var a := NavigationServer3D.map_get_closest_point(nav_map, raw_a)
+		var b := NavigationServer3D.map_get_closest_point(nav_map, raw_b)
+		# 確保兩端都真的吸附到該樓層附近的導航網格，且兩端不重疊
+		if a.distance_to(raw_a) > 6.0 or b.distance_to(raw_b) > 6.0:
+			continue
+		if a.distance_to(b) < 0.6:
+			continue
+		var nav_link := NavigationLink3D.new()
+		nav_link.bidirectional = true
+		nav_link.start_position = a
+		nav_link.end_position = b
+		add_child(nav_link)
+		created += 1
+	return created
+
+
 func _build_details() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame

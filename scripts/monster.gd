@@ -54,6 +54,7 @@ var _lure_sfx: AudioStreamPlayer3D
 var _home: Vector3
 var _nav_ready := false
 var _path := PackedVector3Array()
+var _path_types := PackedInt32Array()
 var _path_i := 0
 var _repath_t := 0.0
 var _wait_t := 0.0
@@ -193,8 +194,17 @@ func _bake_navmesh() -> void:
 		var region := NavigationRegion3D.new()
 		region.navigation_mesh = nm
 		get_parent().add_child(region)
-		_nav_ready = true
+		_finalize_navmesh.call_deferred()
 	)
+
+
+func _finalize_navmesh() -> void:
+	await get_tree().physics_frame
+	var bm := get_parent().get_node_or_null("BlenderMap")
+	if bm and bm.has_method("build_strata_nav_links"):
+		bm.call("build_strata_nav_links", get_world_3d().navigation_map)
+		await get_tree().physics_frame
+	_nav_ready = true
 
 
 func _physics_process(delta: float) -> void:
@@ -490,19 +500,23 @@ func _move_along_path(step: float, allow_climb_on_wall: bool) -> bool:
 			continue
 		var move_dist := minf(remaining, seg_dist)
 		var next_pos := global_position + delta_vec.normalized() * move_dist
-		# 腰部高度防穿牆檢查：若路徑切角撞到實心垂直牆，絕不穿牆
-		var wall_hit := _raycast_world(global_position + Vector3.UP * 0.9, next_pos + Vector3.UP * 0.9)
-		if not wall_hit.is_empty() and absf(wall_hit.normal.y) < 0.55:
-			_record_blocker(wall_hit)
-			var hit_pos: Vector3 = wall_hit.position
-			var hit_n: Vector3 = wall_hit.normal
-			var safe_pos: Vector3 = Vector3(hit_pos.x, global_position.y, hit_pos.z) + hit_n * WALL_OFFSET
-			if global_position.distance_to(safe_pos) > 0.005:
-				global_position = safe_pos
-				any_moved = true
-			if allow_climb_on_wall and _climb_cooldown <= 0.0:
-				_start_climb(hit_n, hit_pos)
-			break
+		# 若此段是顯式建立的跨層 NavigationLink3D，允許沿連結垂直上下而不被樓板擋住
+		var on_nav_link := (_path_i < _path_types.size() and _path_types[_path_i] == NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK) \
+			or (_path_i > 0 and _path_i - 1 < _path_types.size() and _path_types[_path_i - 1] == NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK)
+		if not on_nav_link:
+			# 腰部高度防穿牆檢查：若路徑切角撞到實心垂直牆，絕不穿牆
+			var wall_hit := _raycast_world(global_position + Vector3.UP * 0.9, next_pos + Vector3.UP * 0.9)
+			if not wall_hit.is_empty() and absf(wall_hit.normal.y) < 0.55:
+				_record_blocker(wall_hit)
+				var hit_pos: Vector3 = wall_hit.position
+				var hit_n: Vector3 = wall_hit.normal
+				var safe_pos: Vector3 = Vector3(hit_pos.x, global_position.y, hit_pos.z) + hit_n * WALL_OFFSET
+				if global_position.distance_to(safe_pos) > 0.005:
+					global_position = safe_pos
+					any_moved = true
+				if allow_climb_on_wall and _climb_cooldown <= 0.0:
+					_start_climb(hit_n, hit_pos)
+				break
 		global_position = next_pos
 		remaining -= move_dist
 		any_moved = true
@@ -550,11 +564,13 @@ func _step_climb(delta: float, target_pos: Vector3, base_speed: float) -> bool:
 	var to_target := target_pos - global_position
 	var to_target_n := to_target.normalized() if to_target.length_squared() > 0.0001 else Vector3.UP
 	var along := to_target - _climb_normal * to_target.dot(_climb_normal)
-	# 若目標在牆的另一側或更高處，優先往上爬以翻過牆頂
-	if _climb_normal.dot(to_target_n) < -0.15 or target_pos.y > global_position.y - 0.15:
+	# 目標在明顯下方時優先往下爬，避免在室內盲目往上爬撞天花板；目標在同高或上方時才往上爬翻牆
+	if target_pos.y < global_position.y - 2.0:
+		along.y = minf(along.y, -1.0)
+	elif _climb_normal.dot(to_target_n) < -0.15 or target_pos.y > global_position.y - 0.15:
 		along.y = maxf(along.y, 1.25)
 	if along.length_squared() < 0.001:
-		along = Vector3.UP
+		along = Vector3.DOWN if target_pos.y < global_position.y - 2.0 else Vector3.UP
 	_climb_dir = along.normalized()
 
 	# 檢查攀爬前進方向是否撞到天花板、轉角牆或地板
@@ -751,9 +767,18 @@ func _near(center: Vector3, min_r: float, max_r: float) -> Vector3:
 
 
 func _go_to(target: Vector3) -> void:
-	# 目標不在可走範圍時，導航伺服器會自動改走到最近的可達點
+	# 目標不在可走範圍時，導航伺服器會自動改走到最近的可達點；同時記錄每段是否為 NavigationLink3D
 	_current_target = target
-	_path = NavigationServer3D.map_get_path(get_world_3d().navigation_map, global_position, target, true)
+	var params := NavigationPathQueryParameters3D.new()
+	params.map = get_world_3d().navigation_map
+	params.start_position = global_position
+	params.target_position = target
+	params.path_postprocessing = NavigationPathQueryParameters3D.PATH_POSTPROCESSING_CORRIDORFUNNEL
+	params.metadata_flags = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_TYPES
+	var result := NavigationPathQueryResult3D.new()
+	NavigationServer3D.query_path(params, result)
+	_path = result.path
+	_path_types = result.path_types
 	_path_i = 0
 	_nav_unreachable = _unreachable(target)
 
