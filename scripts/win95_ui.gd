@@ -54,8 +54,14 @@ var _is_habitable_zone: bool = false
 var _is_everpine_mall: bool = false
 
 const SETTINGS_PATH := "user://settings.cfg"
-var frenzy_mode := false  # 狂暴追獵模式：怪物讀這個值
+var frenzy_mode := false         # 狂暴追獵模式：怪物讀這個值
+var monster_debug_mode := false  # 怪物除錯模式：卡點即時回報與 3D 標記
 var _settings_group: Control
+var _monster_debug_box: CheckBox
+var _monster_debug_panel: PanelContainer
+var _monster_debug_label: Label
+var _debug_toast_left: float = 0.0
+var _debug_toast_msg: String = ""
 
 
 func _ready() -> void:
@@ -63,6 +69,7 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
 		frenzy_mode = cfg.get_value("monster", "frenzy_mode", false)
+		monster_debug_mode = cfg.get_value("monster", "debug_mode", false)
 	_build_hud()
 	_build_overlay()
 	_build_settings()
@@ -77,6 +84,10 @@ func _get_current_layer_name() -> String:
 	return "閾界"
 
 
+func get_current_layer_name() -> String:
+	return _get_current_layer_name()
+
+
 func _get_player_node() -> Node3D:
 	var cur := get_tree().current_scene
 	if cur:
@@ -84,6 +95,25 @@ func _get_player_node() -> Node3D:
 		if p is Node3D:
 			return p as Node3D
 	return null
+
+
+func _get_monster_node() -> Node:
+	var cur := get_tree().current_scene
+	if cur:
+		return cur.get_node_or_null("Monster")
+	return null
+
+
+func _set_monster_debug_mode(on: bool) -> void:
+	monster_debug_mode = on
+	if _monster_debug_box and _monster_debug_box.button_pressed != on:
+		_monster_debug_box.set_pressed_no_signal(on)
+	if _monster_debug_panel:
+		_monster_debug_panel.visible = on
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	cfg.set_value("monster", "debug_mode", on)
+	cfg.save(SETTINGS_PATH)
 
 
 func _format_coord_report(p: Node3D) -> String:
@@ -98,19 +128,27 @@ func _format_coord_report(p: Node3D) -> String:
 func _process(delta: float) -> void:
 	if _coord_copy_toast_left > 0.0:
 		_coord_copy_toast_left = maxf(0.0, _coord_copy_toast_left - delta)
-	if not _coord_panel or not _coord_panel.visible or not _coord_label:
-		return
-	var p := _get_player_node()
-	if p == null:
-		_coord_label.text = " %s | 等待玩家生成... " % _get_current_layer_name()
-		return
-	var yaw_deg := int(round(rad_to_deg(p.rotation.y))) % 360
-	if yaw_deg < 0:
-		yaw_deg += 360
-	var footer := " ✓ 已複製座標到剪貼簿！(Ctrl+V 貼上回報)" if _coord_copy_toast_left > 0.0 else " [F3] 隱藏座標  |  [F4] 一鍵複製座標 "
-	_coord_label.text = " %s  |  X: %.2f   Y: %.2f   Z: %.2f   面朝: %d° \n%s" % [
-		_get_current_layer_name(), p.position.x, p.position.y, p.position.z, yaw_deg, footer
-	]
+	if _debug_toast_left > 0.0:
+		_debug_toast_left = maxf(0.0, _debug_toast_left - delta)
+	if _coord_panel and _coord_panel.visible and _coord_label:
+		var p := _get_player_node()
+		if p == null:
+			_coord_label.text = " %s | 等待玩家生成... " % _get_current_layer_name()
+		else:
+			var yaw_deg := int(round(rad_to_deg(p.rotation.y))) % 360
+			if yaw_deg < 0:
+				yaw_deg += 360
+			var footer := " ✓ 已複製座標到剪貼簿！(Ctrl+V 貼上回報)" if _coord_copy_toast_left > 0.0 else " [F3] 隱藏座標  |  [F4] 一鍵複製座標 "
+			_coord_label.text = " %s  |  X: %.2f   Y: %.2f   Z: %.2f   面朝: %d° \n%s" % [
+				_get_current_layer_name(), p.position.x, p.position.y, p.position.z, yaw_deg, footer
+			]
+	if _monster_debug_panel and _monster_debug_panel.visible and _monster_debug_label:
+		var m := _get_monster_node()
+		var body := " [怪物除錯模式]\n 本場景尚無怪物節點 "
+		if m and m.has_method("get_debug_hud_text"):
+			body = m.call("get_debug_hud_text", _get_current_layer_name())
+		var hint := " " + _debug_toast_msg if _debug_toast_left > 0.0 else " [F8] 關閉除錯 | [F9] 複製卡點報告 | [F10] 清除標記 "
+		_monster_debug_label.text = body + "\n" + hint
 
 
 func _input(event: InputEvent) -> void:
@@ -127,6 +165,23 @@ func _input(event: InputEvent) -> void:
 			_coord_copy_toast_left = 2.2
 			if _coord_panel:
 				_coord_panel.visible = true
+	elif key_ev.keycode == KEY_F8 or key_ev.physical_keycode == KEY_F8:
+		_set_monster_debug_mode(not monster_debug_mode)
+	elif key_ev.keycode == KEY_F9 or key_ev.physical_keycode == KEY_F9:
+		var m := _get_monster_node()
+		if m and m.has_method("get_stuck_report_text"):
+			var report: String = m.call("get_stuck_report_text", _get_current_layer_name())
+			DisplayServer.clipboard_set(report)
+			_debug_toast_msg = "✓ 已複製卡點報告到剪貼簿！(Ctrl+V 貼上回報)"
+			_debug_toast_left = 2.8
+			if not monster_debug_mode:
+				_set_monster_debug_mode(true)
+	elif key_ev.keycode == KEY_F10 or key_ev.physical_keycode == KEY_F10:
+		var m := _get_monster_node()
+		if m and m.has_method("clear_stuck_reports"):
+			m.call("clear_stuck_reports")
+			_debug_toast_msg = "✓ 已清除所有卡點標記與紀錄"
+			_debug_toast_left = 2.2
 
 
 func is_popup_open() -> bool:
@@ -396,6 +451,30 @@ func _build_hud() -> void:
 	_coord_label.add_theme_font_size_override("font_size", 12)
 	_coord_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coord_inner.add_child(_coord_label)
+
+	# 右上角 Win95 風格怪物除錯面板（[F8] 開關、[F9] 複製卡點報告、[F10] 清除標記）
+	_monster_debug_panel = PanelContainer.new()
+	_monster_debug_panel.add_theme_stylebox_override("panel", _make_raised_box(Color(0.753, 0.753, 0.753, 0.92)))
+	_monster_debug_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_monster_debug_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_monster_debug_panel.offset_left = -460
+	_monster_debug_panel.offset_right = -10
+	_monster_debug_panel.offset_top = 10
+	_monster_debug_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monster_debug_panel.visible = monster_debug_mode
+	add_child(_monster_debug_panel)
+
+	var dbg_inner := PanelContainer.new()
+	dbg_inner.add_theme_stylebox_override("panel", _make_sunken_box(Color(0.09, 0.05, 0.06, 0.94)))
+	dbg_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monster_debug_panel.add_child(dbg_inner)
+
+	_monster_debug_label = Label.new()
+	_monster_debug_label.text = " [怪物除錯模式] 初始化中... "
+	_monster_debug_label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.58))
+	_monster_debug_label.add_theme_font_size_override("font_size", 12)
+	_monster_debug_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dbg_inner.add_child(_monster_debug_label)
 
 	_taskbar = PanelContainer.new()
 	_taskbar.add_theme_stylebox_override("panel", _make_raised_box(COL_BG))
@@ -854,7 +933,7 @@ func _build_settings() -> void:
 	_settings_group.visible = false
 	_overlay.add_child(_settings_group)
 
-	var win := _create_win95_window(Vector2(420, 190), "Control Panel - 設定")
+	var win := _create_win95_window(Vector2(450, 285), "Control Panel - 設定")
 	_settings_group.add_child(win["frame"])
 	var content: VBoxContainer = win["content"]
 
@@ -877,11 +956,30 @@ func _build_settings() -> void:
 	content.add_child(box)
 
 	var desc := Label.new()
-	desc.text = "怪物永遠知道你在哪裡，以超高速無止盡地追你；
-遇到完全繞不過去的阻礙會直接穿牆。"
+	desc.text = "怪物永遠知道你在哪裡，以極高速無止盡地追你；
+已移除穿牆，改為遇牆或高低差直接爬牆追擊。"
 	desc.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	desc.add_theme_font_size_override("font_size", 12)
 	content.add_child(desc)
+
+	_monster_debug_box = CheckBox.new()
+	_monster_debug_box.text = " 怪物除錯模式（卡點回報）"
+	_monster_debug_box.button_pressed = monster_debug_mode
+	_monster_debug_box.add_theme_color_override("font_color", Color.BLACK)
+	_monster_debug_box.add_theme_color_override("font_hover_color", Color.BLACK)
+	_monster_debug_box.add_theme_color_override("font_pressed_color", Color.BLACK)
+	_monster_debug_box.add_theme_color_override("font_hover_pressed_color", Color.BLACK)
+	_monster_debug_box.add_theme_color_override("font_focus_color", Color.BLACK)
+	_monster_debug_box.add_theme_font_size_override("font_size", 14)
+	_monster_debug_box.toggled.connect(_set_monster_debug_mode)
+	content.add_child(_monster_debug_box)
+
+	var dbg_desc := Label.new()
+	dbg_desc.text = "即時顯示怪物尋路/爬牆狀態，卡住時自動標記 3D 位置並記錄座標。
+快捷鍵：[F8] 開關除錯  |  [F9] 複製卡點報告  |  [F10] 清除標記"
+	dbg_desc.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	dbg_desc.add_theme_font_size_override("font_size", 12)
+	content.add_child(dbg_desc)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_END

@@ -15,7 +15,13 @@ const LIGHT_KILL_DIST := 7.0  # 牠周圍這個距離內的燈會熄掉
 const LIGHT_FLICKER_DIST := 15.0  # 這個距離內的燈開始亂閃，預告牠快到了
 const DREAD_DIST := 15.0   # 這個距離內畫面開始劣化（穿牆也算：你「感覺」得到牠）
 const MAX_CHASE_SPEED := 4.9  # 越追越快的上限，必須低於玩家跑速 5.0
-const FRENZY_SPEED := 9.0  # 狂暴模式：接近玩家跑速兩倍，跑不掉
+const FRENZY_SPEED := 20.0  # 狂暴追獵模式：玩家跑速四倍，極高速追擊
+const CLIMB_SPEED_RATIO := 0.75  # 爬牆速度佔當前移速的比例
+const WALL_OFFSET := 0.42  # 與牆面保持的距離，避免穿模或穿牆
+const STUCK_CHECK_TIME := 1.4  # 連續位移不足超過幾秒就判定卡住
+const STUCK_MIN_MOVE := 0.35   # 判定有前進的最小位移（公尺）
+const STUCK_DEDUP_RADIUS := 2.0  # 同一區域半徑內重複卡住只累加次數，不重複插標記
+const STUCK_LOG_PATH := "user://monster_stuck_log.txt"
 
 const POV_LAYER := 20      # 怪物模型放在這個渲染層，怪物視角攝影機才不會拍到自己的頭
 const POV_EYE_Y := 1.7     # 怪物視角攝影機離地高度
@@ -82,7 +88,24 @@ var _echo_t := 0.0
 var _post_mat: ShaderMaterial
 var _post_base := {}
 var _heavy: AudioStreamPlayer3D  # 狂暴模式的沉重腳步
-var _noclip := false           # 狂暴模式下目前是否正在穿牆
+var _climbing := false           # 目前是否正在爬牆
+var _climb_normal := Vector3.UP  # 正在攀爬牆面的外法線
+var _climb_dir := Vector3.UP     # 當前沿牆面攀爬的方向
+var _climb_t := 0.0              # 本次連續爬牆時間
+var _climb_cooldown := 0.0       # 剛結束爬牆的短暫冷卻
+var _climb_last_wall_pos := Vector3.ZERO
+var _current_speed := 0.0
+var _current_target := Vector3.ZERO
+var _nav_unreachable := false
+var _last_blocker_name := ""
+var _last_blocker_pos := Vector3.ZERO
+var _stuck_anchor := Vector3.ZERO
+var _stuck_t := 0.0
+var _stuck_cooldown := 0.0
+var _is_stuck := false
+var _last_stuck_reason := ""
+var _stuck_reports: Array[Dictionary] = []
+var _debug_markers_root: Node3D
 var _pov_vp: SubViewport       # 怪物視角畫面（只在螢幕翻起時才渲染）
 var _pov_cam: Camera3D
 var _pov_panel: Control
@@ -100,12 +123,19 @@ var _ragdoll_sfx: AudioStreamPlayer3D
 func _ready() -> void:
 	_home = global_position
 	_last_seen = _home
+	_stuck_anchor = _home
+	_current_target = _home
 	_player = get_parent().get_node("Player")
 	_ui = get_parent().get_node_or_null("Win95UI")
 	if _ui:
 		_ui.restart_requested.connect(_reset)
 	_build_sprite()
 	_build_pov()
+	_debug_markers_root = Node3D.new()
+	_debug_markers_root.name = "MonsterDebugMarkers"
+	_debug_markers_root.top_level = true
+	_debug_markers_root.visible = _ui != null and _ui.monster_debug_mode
+	add_child(_debug_markers_root)
 	_steps = AudioStreamPlayer3D.new()
 	_steps.stream = BackroomsAudio.create_carpet_footstep_stream()
 	_steps.pitch_scale = 0.55  # 比玩家腳步低沉
@@ -168,8 +198,14 @@ func _bake_navmesh() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _debug_markers_root:
+		_debug_markers_root.visible = _ui != null and _ui.monster_debug_mode
 	if not _nav_ready or (_ui and _ui.is_popup_open()):
 		return  # 玩家讀文件時動不了，怪物也暫停才公平
+	if _climb_cooldown > 0.0:
+		_climb_cooldown = maxf(0.0, _climb_cooldown - delta)
+	if _stuck_cooldown > 0.0:
+		_stuck_cooldown = maxf(0.0, _stuck_cooldown - delta)
 	if state == State.UNCONSCIOUS:
 		_unconscious_t -= delta
 		if _unconscious_t <= 0.0:
@@ -179,14 +215,20 @@ func _physics_process(delta: float) -> void:
 	if _enraged_t > 0.0:
 		_enraged_t -= delta
 	var moved := false
+	var wants_move := false
 	var frenzy: bool = _ui != null and _ui.frenzy_mode
 	if frenzy:
+		wants_move = true
 		moved = _frenzy(delta, dist)
 	elif _stagger_t > 0.0:
 		_stagger_t -= delta
+		_current_speed = 0.0
 	else:
 		_think(delta)
+		var stalking_frozen := state == State.CHASE and _mood == Mood.STALK and _watched()
+		wants_move = not stalking_frozen and state not in [State.STARE, State.APPARITION, State.PEEK] and (_climbing or _path_i < _path.size() or state == State.CHASE)
 		moved = _move(delta)
+	_update_stuck_monitor(delta, wants_move, _current_target)
 	if not frenzy:  # 狂暴時手電筒嚇不住牠
 		_update_flashlight_reaction(delta, dist)
 	_update_neck_snap(delta, moved)
@@ -318,42 +360,274 @@ func _catch() -> void:
 	_reset()
 
 
-# 狂暴模式：無視視線與聲音，永遠直奔玩家當下位置。導航到不了玩家時（路徑終點離玩家太遠）直接直線穿牆。
+# 狂暴追獵模式：無視視線與聲音，極高速直奔玩家；不再穿牆，改為遇牆或高低差直接爬牆追擊。
 func _frenzy(delta: float, dist: float) -> bool:
 	var ppos := _player.global_position
+	_current_target = ppos
 	state = State.CHASE
 	_mood = Mood.RUSH
 	if dist < catch_distance:
 		_catch()
 		return false
-	_repath_t -= delta
-	if _repath_t <= 0.0:
-		_repath_t = 0.2
-		_go_to(ppos)
-		_noclip = _unreachable(ppos)
-	var step := FRENZY_SPEED * delta
-	if _noclip:
-		global_position = global_position.move_toward(ppos + Vector3.UP * 0.3, step)
-	elif _path_i < _path.size():
-		global_position = global_position.move_toward(_path[_path_i], step)
-		if global_position.distance_to(_path[_path_i]) < 0.05:
-			_path_i += 1
+	var moved := false
+	if _climbing:
+		_current_speed = FRENZY_SPEED * CLIMB_SPEED_RATIO
+		moved = _step_climb(delta, ppos, FRENZY_SPEED)
 	else:
+		_repath_t -= delta
+		if _repath_t <= 0.0:
+			_repath_t = 0.18
+			_go_to(ppos)
+			_nav_unreachable = _unreachable(ppos)
+		_current_speed = FRENZY_SPEED
+		var step := FRENZY_SPEED * delta
+		var height_diff := ppos.y - global_position.y
+		var near_path_end := _path.is_empty() or _path_i >= _path.size() or global_position.distance_to(_path[_path.size() - 1]) < 1.35
+		if _climb_cooldown <= 0.0 and ((_nav_unreachable and near_path_end) or (height_diff > 0.75 and Vector2(ppos.x - global_position.x, ppos.z - global_position.z).length() < 4.5)):
+			var wall_hit := _probe_wall_toward(ppos, 1.55)
+			if not wall_hit.is_empty():
+				_start_climb(wall_hit.normal, wall_hit.position)
+				moved = _step_climb(delta, ppos, FRENZY_SPEED)
+			elif _path_i < _path.size():
+				moved = _move_along_path(step, true)
+			else:
+				moved = _move_horizontal_checked(ppos, step, true)
+		elif _path_i < _path.size():
+			moved = _move_along_path(step, true)
+		else:
+			moved = _move_horizontal_checked(ppos, step, true)
+	if global_position.distance_to(ppos) < catch_distance:
+		_catch()
+		return false
+	if not moved:
 		return false
 	_step_t -= delta
 	if _step_t <= 0.0:
-		_step_t = 0.26
-		_heavy.pitch_scale = randf_range(0.27, 0.33)
+		_step_t = 0.14 if not _climbing else 0.12
+		_heavy.pitch_scale = randf_range(0.42, 0.52) if _climbing else randf_range(0.28, 0.36)
 		_heavy.play()
 	return true
 
 
-# 導航路徑的終點離玩家太遠 = 牆或障礙完全擋住，繞不過去（跳躍中的高度差放寬容許）
-func _unreachable(ppos: Vector3) -> bool:
+# 導航路徑的終點離目標太遠 = 牆或高度差擋住，無法僅靠地面導航抵達
+func _unreachable(target_pos: Vector3) -> bool:
 	if _path.is_empty():
 		return true
 	var end := _path[_path.size() - 1]
-	return Vector2(end.x - ppos.x, end.z - ppos.z).length() > 1.5 or absf(end.y - ppos.y) > 2.5
+	return Vector2(end.x - target_pos.x, end.z - target_pos.z).length() > 1.5 or absf(end.y - target_pos.y) > 1.6
+
+
+func _raycast_world(from: Vector3, to: Vector3) -> Dictionary:
+	var query := PhysicsRayQueryParameters3D.create(from, to, 1)
+	var excludes: Array[RID] = []
+	if _player:
+		excludes.append(_player.get_rid())
+	for pb in _phys_bones:
+		if is_instance_valid(pb):
+			excludes.append(pb.get_rid())
+	query.exclude = excludes
+	return get_world_3d().direct_space_state.intersect_ray(query)
+
+
+func _record_blocker(hit: Dictionary) -> void:
+	if hit.is_empty():
+		return
+	var col = hit.get("collider")
+	if col is Node:
+		var n := col as Node
+		var parent_name: String = String(n.get_parent().name) if n.get_parent() else ""
+		_last_blocker_name = "%s/%s" % [parent_name, n.name] if not parent_name.is_empty() else String(n.name)
+	else:
+		_last_blocker_name = str(col)
+	_last_blocker_pos = hit.get("position", global_position)
+
+
+func _probe_wall_toward(target_pos: Vector3, max_dist: float = 1.6) -> Dictionary:
+	var dir := target_pos - global_position
+	dir.y = 0.0
+	if dir.length_squared() < 0.0001:
+		return {}
+	dir = dir.normalized()
+	var origin := global_position + Vector3.UP * 0.9
+	for angle_deg in [0.0, 28.0, -28.0, 60.0, -60.0]:
+		var ray_dir := dir.rotated(Vector3.UP, deg_to_rad(angle_deg))
+		var hit := _raycast_world(origin, origin + ray_dir * max_dist)
+		if not hit.is_empty() and absf(hit.normal.y) < 0.55:
+			_record_blocker(hit)
+			return hit
+	return {}
+
+
+func _start_climb(normal: Vector3, hit_pos: Vector3) -> void:
+	_climbing = true
+	_climb_normal = normal.normalized()
+	_climb_dir = Vector3.UP
+	_climb_t = 0.0
+	_climb_last_wall_pos = hit_pos
+	global_position = Vector3(hit_pos.x, global_position.y, hit_pos.z) + _climb_normal * WALL_OFFSET
+	_path = PackedVector3Array()
+	_path_i = 0
+
+
+func _stop_climb(cooldown: float = 0.35) -> void:
+	_climbing = false
+	_climb_t = 0.0
+	_climb_cooldown = maxf(_climb_cooldown, cooldown)
+	_repath_t = 0.0
+
+
+func _move_along_path(step: float, allow_climb_on_wall: bool) -> bool:
+	var remaining := step
+	var any_moved := false
+	var safety := 0
+	while remaining > 0.001 and _path_i < _path.size() and safety < 12:
+		safety += 1
+		var wp := _path[_path_i]
+		var delta_vec := wp - global_position
+		var seg_dist := delta_vec.length()
+		if seg_dist < 0.05:
+			_path_i += 1
+			continue
+		var move_dist := minf(remaining, seg_dist)
+		var next_pos := global_position + delta_vec.normalized() * move_dist
+		# 腰部高度防穿牆檢查：若路徑切角撞到實心垂直牆，絕不穿牆
+		var wall_hit := _raycast_world(global_position + Vector3.UP * 0.9, next_pos + Vector3.UP * 0.9)
+		if not wall_hit.is_empty() and absf(wall_hit.normal.y) < 0.55:
+			_record_blocker(wall_hit)
+			var hit_pos: Vector3 = wall_hit.position
+			var hit_n: Vector3 = wall_hit.normal
+			var safe_pos: Vector3 = Vector3(hit_pos.x, global_position.y, hit_pos.z) + hit_n * WALL_OFFSET
+			if global_position.distance_to(safe_pos) > 0.005:
+				global_position = safe_pos
+				any_moved = true
+			if allow_climb_on_wall and _climb_cooldown <= 0.0:
+				_start_climb(hit_n, hit_pos)
+			break
+		global_position = next_pos
+		remaining -= move_dist
+		any_moved = true
+		if global_position.distance_to(wp) < 0.05:
+			_path_i += 1
+	return any_moved
+
+
+func _move_horizontal_checked(target_pos: Vector3, step: float, allow_climb_on_wall: bool) -> bool:
+	var flat := Vector3(target_pos.x - global_position.x, 0.0, target_pos.z - global_position.z)
+	var flat_dist := flat.length()
+	if flat_dist < 0.05:
+		return false
+	var move_dist := minf(step, flat_dist)
+	var dir := flat / flat_dist
+	var next_pos := global_position + dir * move_dist
+	# 嚴格防穿牆射線：檢查前方 WALL_OFFSET + move_dist
+	var ray_from := global_position + Vector3.UP * 0.9
+	var ray_to := ray_from + dir * (move_dist + WALL_OFFSET)
+	var wall_hit := _raycast_world(ray_from, ray_to)
+	if not wall_hit.is_empty() and absf(wall_hit.normal.y) < 0.55:
+		_record_blocker(wall_hit)
+		var hit_pos: Vector3 = wall_hit.position
+		var hit_n: Vector3 = wall_hit.normal
+		var stop_pos: Vector3 = Vector3(hit_pos.x, global_position.y, hit_pos.z) + hit_n * WALL_OFFSET
+		var moved_before_hit := global_position.distance_to(stop_pos) > 0.005
+		global_position = stop_pos
+		if allow_climb_on_wall and _climb_cooldown <= 0.0:
+			_start_climb(hit_n, hit_pos)
+			return true
+		return moved_before_hit
+	# 檢查落腳地板，避免懸空走出虛空
+	var floor_hit := _raycast_world(next_pos + Vector3.UP * 0.8, next_pos + Vector3.DOWN * 3.0)
+	if not floor_hit.is_empty() and floor_hit.normal.y > 0.55:
+		global_position = Vector3(next_pos.x, floor_hit.position.y + 0.3, next_pos.z)
+		return true
+	# 下方無地板（可能是懸崖/虛空）：不走出去
+	return false
+
+
+func _step_climb(delta: float, target_pos: Vector3, base_speed: float) -> bool:
+	_climb_t += delta
+	var climb_speed := base_speed * CLIMB_SPEED_RATIO
+	var step := climb_speed * delta
+	var to_target := target_pos - global_position
+	var to_target_n := to_target.normalized() if to_target.length_squared() > 0.0001 else Vector3.UP
+	var along := to_target - _climb_normal * to_target.dot(_climb_normal)
+	# 若目標在牆的另一側或更高處，優先往上爬以翻過牆頂
+	if _climb_normal.dot(to_target_n) < -0.15 or target_pos.y > global_position.y - 0.15:
+		along.y = maxf(along.y, 1.25)
+	if along.length_squared() < 0.001:
+		along = Vector3.UP
+	_climb_dir = along.normalized()
+
+	# 檢查攀爬前進方向是否撞到天花板、轉角牆或地板
+	var probe_from := global_position + _climb_normal * 0.12
+	var fwd_hit := _raycast_world(probe_from, probe_from + _climb_dir * (step + 0.65))
+	if not fwd_hit.is_empty():
+		_record_blocker(fwd_hit)
+		if fwd_hit.normal.y < -0.5:
+			# 撞到天花板：改沿牆面水平橫移繞開
+			var horiz := Vector3(along.x, 0.0, along.z)
+			if horiz.length_squared() > 0.01:
+				var horiz_dir := horiz.normalized()
+				var side_hit := _raycast_world(probe_from, probe_from + horiz_dir * (step + 0.55))
+				if side_hit.is_empty():
+					_climb_dir = horiz_dir
+				else:
+					_record_blocker(side_hit)
+					_report_stuck("爬牆被天花板與側牆同時擋住", target_pos)
+					_drop_to_floor_from_climb(0.8)
+					return false
+			else:
+				_report_stuck("爬牆被天花板擋住，無法再往上", target_pos)
+				_drop_to_floor_from_climb(0.8)
+				return false
+		elif absf(fwd_hit.normal.y) < 0.55:
+			# 遇到內轉角另一面牆：無縫轉貼新牆面繼續爬
+			_climb_normal = fwd_hit.normal.normalized()
+			global_position = fwd_hit.position + _climb_normal * WALL_OFFSET
+			_climb_last_wall_pos = fwd_hit.position
+			return true
+		elif fwd_hit.normal.y > 0.6 and _climb_dir.y < 0.0:
+			# 往下爬踩到地板：落地結束爬牆
+			global_position = fwd_hit.position + Vector3.UP * 0.3
+			_stop_climb(0.3)
+			return true
+
+	var next_pos := global_position + _climb_dir * step
+	# 確認背後牆面是否還在
+	var wall_check := _raycast_world(next_pos + _climb_normal * 0.3, next_pos - _climb_normal * 1.15)
+	if not wall_check.is_empty() and absf(wall_check.normal.y) < 0.65:
+		_climb_normal = _climb_normal.lerp(wall_check.normal, 0.55).normalized()
+		global_position = wall_check.position + _climb_normal * WALL_OFFSET
+		_climb_last_wall_pos = wall_check.position
+		# 若已爬到與目標相近高度、腳下有地板且能直接看到目標，安全下牆
+		if _climb_t > 0.35 and absf(global_position.y - target_pos.y) < 0.9:
+			var under := _raycast_world(global_position + Vector3.UP * 0.25, global_position + Vector3.DOWN * 1.15)
+			if not under.is_empty() and under.normal.y > 0.6 and _clear_line(global_position + Vector3.UP * 0.9, target_pos + Vector3.UP * 0.9):
+				global_position = under.position + Vector3.UP * 0.3
+				_stop_climb(0.45)
+		return true
+
+	# 牆面結束（爬到牆頂或外轉角）：嘗試翻上牆頂平台
+	var top_probe := next_pos - _climb_normal * 0.85 + Vector3.UP * 0.75
+	var ledge_hit := _raycast_world(top_probe, top_probe + Vector3.DOWN * 2.2)
+	if not ledge_hit.is_empty() and ledge_hit.normal.y > 0.55:
+		global_position = ledge_hit.position + Vector3.UP * 0.3
+		_stop_climb(0.35)
+		return true
+
+	# 沒翻到平台：看看正下方有沒有安全地板可落腳
+	if _drop_to_floor_from_climb(0.45):
+		return true
+	_report_stuck("爬牆邊緣找不到可翻越的平台或落腳地板", target_pos)
+	return false
+
+
+func _drop_to_floor_from_climb(cooldown: float) -> bool:
+	var floor_hit := _raycast_world(global_position + Vector3.UP * 0.3, global_position + Vector3.DOWN * 12.0)
+	_stop_climb(cooldown)
+	if not floor_hit.is_empty() and floor_hit.normal.y > 0.55:
+		global_position = floor_hit.position + Vector3.UP * 0.3
+		return true
+	return false
 
 
 func _sees_player() -> bool:
@@ -478,16 +752,17 @@ func _near(center: Vector3, min_r: float, max_r: float) -> Vector3:
 
 func _go_to(target: Vector3) -> void:
 	# 目標不在可走範圍時，導航伺服器會自動改走到最近的可達點
+	_current_target = target
 	_path = NavigationServer3D.map_get_path(get_world_3d().navigation_map, global_position, target, true)
 	_path_i = 0
+	_nav_unreachable = _unreachable(target)
 
 
 # 回傳這一幀有沒有真的移動
 func _move(delta: float) -> bool:
-	if _path_i >= _path.size():
-		return false
 	var stalking := state == State.CHASE and _mood == Mood.STALK
 	if stalking and _watched():
+		_current_speed = 0.0
 		return false  # 你盯著牠時牠一動也不動
 	var speed := patrol_speed
 	if state == State.CHASE:
@@ -495,13 +770,29 @@ func _move(delta: float) -> bool:
 		speed = minf(chase_speed + 0.1 * _anger + bonus, MAX_CHASE_SPEED)
 	elif state != State.PATROL:
 		speed = investigate_speed
-	global_position = global_position.move_toward(_path[_path_i], speed * delta)
-	if global_position.distance_to(_path[_path_i]) < 0.05:
-		_path_i += 1
+	_current_speed = speed * CLIMB_SPEED_RATIO if _climbing else speed
+	var moved := false
+	if _climbing:
+		moved = _step_climb(delta, _current_target, speed)
+	elif _path_i < _path.size():
+		moved = _move_along_path(speed * delta, state == State.CHASE)
+	elif state == State.CHASE and _climb_cooldown <= 0.0 and _nav_unreachable:
+		var wall_hit := _probe_wall_toward(_current_target, 1.55)
+		if not wall_hit.is_empty():
+			_start_climb(wall_hit.normal, wall_hit.position)
+			moved = _step_climb(delta, _current_target, speed)
+		else:
+			moved = _move_horizontal_checked(_current_target, speed * delta, true)
+	else:
+		_current_speed = 0.0
+		return false
+	if not moved:
+		return false
 	# 腳步聲：走越快越密；尾隨和前往埋伏點時完全無聲
 	_step_t -= delta
 	if _step_t <= 0.0 and not stalking and state != State.AMBUSH:
-		_step_t = 1.4 / speed
+		_step_t = 1.4 / maxf(_current_speed, 0.5)
+		_steps.pitch_scale = 0.78 if _climbing else 0.55
 		_steps.play()
 	return true
 
@@ -538,7 +829,15 @@ func _reset() -> void:
 	_stagger_t = 0.0
 	_enraged_t = 0.0
 	_unconscious_t = 0.0
-	_noclip = false
+	_climbing = false
+	_climb_normal = Vector3.UP
+	_climb_dir = Vector3.UP
+	_climb_t = 0.0
+	_climb_cooldown = 0.0
+	_nav_unreachable = false
+	_stuck_anchor = _home
+	_stuck_t = 0.0
+	_is_stuck = false
 	_repath_t = 0.0
 	state = State.PATROL
 
@@ -649,7 +948,12 @@ func _process(_delta: float) -> void:
 	if state == State.UNCONSCIOUS and _head_pb:
 		_pov_cam.global_transform = _head_pb.global_transform
 		return
-	# 攝影機跟著怪物的頭：面向模型正面（模型朝 +Z、攝影機朝 -Z），歪脖子時畫面也跟著歪
+	# 攝影機跟著怪物的頭：面向模型正面（模型朝 +Z、攝影機朝 -Z），爬牆時視角跟著傾倒
+	if _climbing and _model:
+		var mb := _model.global_basis.orthonormalized()
+		_pov_cam.global_position = _model.global_position + mb.y * POV_EYE_Y
+		_pov_cam.global_basis = Basis(-mb.x, mb.y, -mb.z)
+		return
 	var yaw := _model.rotation.y if _model else 0.0
 	_pov_cam.global_position = global_position + Vector3.UP * (POV_EYE_Y - 0.3)
 	_pov_cam.global_rotation = Vector3(0.0, yaw + PI, _snap_roll * 0.6)
@@ -669,22 +973,49 @@ func _on_skeleton_updated() -> void:
 func _update_visual(delta: float, moved: bool, dist: float) -> void:
 	if not _model:
 		return
-	# 面向：凝視/幻影/探頭/近距離時盯著玩家，移動時面向行進方向
-	var face_target := _player.global_position
-	var look_at_player := not moved or state == State.STARE or state == State.APPARITION or state == State.PEEK or dist < NEAR_DIST
-	if not look_at_player and _path_i < _path.size():
-		face_target = _path[_path_i]
-	var dir := face_target - global_position
-	dir.y = 0.0
-	if dir.length_squared() > 0.0001:
-		var target_yaw := atan2(dir.x, dir.z)
-		_model.rotation.y = lerp_angle(_model.rotation.y, target_yaw, minf(delta * 10.0, 1.0))
+	if _climbing:
+		# 爬牆姿勢：雙腳貼在牆面（local +Y 朝牆外法線、local +Z 朝攀爬方向）
+		var y_axis := _climb_normal.normalized()
+		var z_proj := _climb_dir - y_axis * _climb_dir.dot(y_axis)
+		var z_axis := z_proj.normalized() if z_proj.length_squared() > 0.0001 else Vector3.UP
+		var x_axis := y_axis.cross(z_axis)
+		if x_axis.length_squared() < 0.0001:
+			x_axis = Vector3.RIGHT
+		else:
+			x_axis = x_axis.normalized()
+		z_axis = x_axis.cross(y_axis).normalized()
+		var target_basis := Basis(x_axis, y_axis, z_axis).orthonormalized()
+		var cur_q := _model.basis.orthonormalized().get_rotation_quaternion()
+		_model.basis = Basis(cur_q.slerp(target_basis.get_rotation_quaternion(), minf(delta * 14.0, 1.0)))
+		_model.position = _model.position.lerp(-y_axis * WALL_OFFSET, minf(delta * 14.0, 1.0))
+	else:
+		# 面向：凝視/幻影/探頭/近距離時盯著玩家，移動時面向行進方向
+		var face_target := _player.global_position
+		var look_at_player := not moved or state == State.STARE or state == State.APPARITION or state == State.PEEK or dist < NEAR_DIST
+		if not look_at_player and _path_i < _path.size():
+			face_target = _path[_path_i]
+		var dir := face_target - global_position
+		dir.y = 0.0
+		var target_yaw := _model.rotation.y
+		if dir.length_squared() > 0.0001:
+			target_yaw = atan2(dir.x, dir.z)
+		var target_basis := Basis(Vector3.UP, target_yaw)
+		var cur_q := _model.basis.orthonormalized().get_rotation_quaternion()
+		_model.basis = Basis(cur_q.slerp(target_basis.get_rotation_quaternion(), minf(delta * 11.0, 1.0)))
+		_model.position = _model.position.lerp(Vector3(0.0, -0.3, 0.0), minf(delta * 12.0, 1.0))
 	if _anim:
 		var want := "Walk" if moved and _anim.has_animation("Walk") else "Idle"
 		if _anim.has_animation(want) and _anim.current_animation != want:
 			_anim.play(want, 0.15)
 		if want == "Walk":
-			_anim.speed_scale = 2.6 if _ui and _ui.frenzy_mode else 1.9 if _enraged_t > 0.0 else (1.6 if state == State.CHASE else 1.0)
+			if _ui and _ui.frenzy_mode:
+				_anim.speed_scale = 3.6 if _climbing else 4.2
+			elif _climbing:
+				_anim.speed_scale = 1.9
+			elif _enraged_t > 0.0:
+				_anim.speed_scale = 1.9
+			else:
+				_anim.speed_scale = 1.6 if state == State.CHASE else 1.0
 		else:
 			_anim.speed_scale = 1.0
 
@@ -891,6 +1222,8 @@ func hit_by_shotgun(_hit_pos: Vector3, blast_dir: Vector3, pellet_count: int) ->
 	state = State.UNCONSCIOUS
 	_unconscious_t = UNCONSCIOUS_DURATION
 	if not was_unconscious:
+		_climbing = false
+		_climb_t = 0.0
 		_path = PackedVector3Array()
 		_path_i = 0
 		_snap_roll = 0.0
@@ -970,3 +1303,195 @@ func on_gunshot_heard(gun_pos: Vector3) -> void:
 		state = State.INVESTIGATE
 		_go_to(_near(gun_pos, 0.0, 2.5))
 		_repath_t = 1.5
+
+
+# ==================== 怪物卡點除錯與回報系統 ====================
+
+func _state_label() -> String:
+	if _ui and _ui.frenzy_mode:
+		return "狂暴追獵(爬牆)" if _climbing else "狂暴追獵"
+	var base := ""
+	match state:
+		State.PATROL: base = "巡邏"
+		State.INVESTIGATE: base = "調查"
+		State.STARE: base = "凝視"
+		State.CHASE: base = "追擊"
+		State.SEARCH: base = "搜索"
+		State.AMBUSH: base = "埋伏"
+		State.APPARITION: base = "幻影"
+		State.PEEK: base = "窺視"
+		State.UNCONSCIOUS: base = "昏迷"
+		_: base = "未知"
+	return base + "(爬牆)" if _climbing else base
+
+
+func _current_layer_name() -> String:
+	if _ui and _ui.has_method("get_current_layer_name"):
+		return _ui.call("get_current_layer_name")
+	return "未知層級"
+
+
+func _update_stuck_monitor(delta: float, wants_move: bool, target_pos: Vector3) -> void:
+	if not wants_move:
+		_stuck_anchor = global_position
+		_stuck_t = 0.0
+		_is_stuck = false
+		return
+	if global_position.distance_to(_stuck_anchor) >= STUCK_MIN_MOVE:
+		_stuck_anchor = global_position
+		_stuck_t = 0.0
+		_is_stuck = false
+		return
+	_stuck_t += delta
+	if _stuck_t < STUCK_CHECK_TIME:
+		return
+	_is_stuck = true
+	var reason := ""
+	if _climbing:
+		reason = "爬牆無進展（被牆角或上方障礙卡住）"
+	elif _path.is_empty():
+		reason = "導航網格無路徑（目前位置或目標不在可走網格）"
+	elif _nav_unreachable:
+		reason = "導航無法抵達目標且無法爬過障礙"
+	else:
+		reason = "移動受阻（連續 %.1f 秒位移不足 %.2fm）" % [STUCK_CHECK_TIME, STUCK_MIN_MOVE]
+	_report_stuck(reason, target_pos)
+	_stuck_t = 0.0
+	_stuck_anchor = global_position
+
+
+func _report_stuck(reason: String, target_pos: Vector3) -> void:
+	_last_stuck_reason = reason
+	if _stuck_cooldown > 0.0:
+		return
+	_stuck_cooldown = 2.5
+	var layer_name := _current_layer_name()
+	for rep in _stuck_reports:
+		if rep["layer"] == layer_name and rep["pos"].distance_to(global_position) < STUCK_DEDUP_RADIUS and rep["reason"] == reason:
+			rep["count"] = int(rep["count"]) + 1
+			rep["target"] = target_pos
+			rep["blocker"] = _last_blocker_name
+			if _ui and _ui.monster_debug_mode:
+				print("[MonsterDebug] 重複卡點 #%d (x%d) %s @ %s -> %s" % [
+					rep["id"], rep["count"], reason, str(global_position.snapped(Vector3(0.01, 0.01, 0.01))), str(target_pos.snapped(Vector3(0.01, 0.01, 0.01)))
+				])
+			return
+	var report := {
+		"id": _stuck_reports.size() + 1,
+		"layer": layer_name,
+		"pos": global_position,
+		"target": target_pos,
+		"state": _state_label(),
+		"climbing": _climbing,
+		"reason": reason,
+		"blocker": _last_blocker_name,
+		"blocker_pos": _last_blocker_pos,
+		"count": 1,
+	}
+	_stuck_reports.append(report)
+	_spawn_stuck_marker(report)
+	var line := _format_single_stuck_report(report)
+	if _ui and _ui.monster_debug_mode:
+		print("[MonsterDebug] " + line)
+		_append_stuck_log(line)
+
+
+func _format_single_stuck_report(rep: Dictionary) -> String:
+	var p: Vector3 = rep["pos"]
+	var t: Vector3 = rep["target"]
+	var h_dist := Vector2(t.x - p.x, t.z - p.z).length()
+	var dy := t.y - p.y
+	var blocker_txt: String = " | 阻擋物: %s" % rep["blocker"] if not String(rep["blocker"]).is_empty() else ""
+	var count_txt: String = " (累計 %d 次)" % int(rep["count"]) if int(rep["count"]) > 1 else ""
+	return "#%d 【%s】卡住座標: (%.2f, %.2f, %.2f) -> 無法前往目標: (%.2f, %.2f, %.2f) [水平 %.1fm / 高差 %+.1fm] | 狀態: %s | 原因: %s%s%s" % [
+		int(rep["id"]), rep["layer"], p.x, p.y, p.z, t.x, t.y, t.z, h_dist, dy, rep["state"], rep["reason"], blocker_txt, count_txt
+	]
+
+
+func _spawn_stuck_marker(rep: Dictionary) -> void:
+	if not _debug_markers_root:
+		return
+	var marker := Node3D.new()
+	marker.global_position = rep["pos"]
+	_debug_markers_root.add_child(marker)
+
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.15, 0.45, 0.85)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.no_depth_test = true
+
+	var pillar := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.08
+	cyl.bottom_radius = 0.14
+	cyl.height = 2.6
+	pillar.mesh = cyl
+	pillar.material_override = mat
+	pillar.position = Vector3(0.0, 1.3, 0.0)
+	marker.add_child(pillar)
+
+	var lbl := Label3D.new()
+	var p: Vector3 = rep["pos"]
+	lbl.text = "卡點 #%d\n%s\n(%.1f, %.1f, %.1f)" % [int(rep["id"]), rep["reason"], p.x, p.y, p.z]
+	lbl.position = Vector3(0.0, 2.85, 0.0)
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.modulate = Color(1.0, 0.9, 0.35)
+	lbl.outline_modulate = Color(0.0, 0.0, 0.0)
+	lbl.outline_size = 8
+	lbl.pixel_size = 0.008
+	marker.add_child(lbl)
+
+
+func _append_stuck_log(line: String) -> void:
+	var mode := FileAccess.READ_WRITE if FileAccess.file_exists(STUCK_LOG_PATH) else FileAccess.WRITE
+	var f := FileAccess.open(STUCK_LOG_PATH, mode)
+	if f:
+		f.seek_end()
+		f.store_line("[%s] %s" % [Time.get_datetime_string_from_system(), line])
+		f.close()
+
+
+func get_debug_hud_text(layer_name: String) -> String:
+	var p := global_position
+	var t := _current_target
+	var dist := p.distance_to(_player.global_position) if _player else 0.0
+	var nav_txt := "不可達(轉爬牆)" if _nav_unreachable else "正常"
+	var climb_txt := "爬牆中 (法線 %.1f,%.1f,%.1f)" % [_climb_normal.x, _climb_normal.y, _climb_normal.z] if _climbing else "地面"
+	var stuck_line := " 狀態: 移動正常"
+	if _is_stuck:
+		stuck_line = " ⚠ 卡住警報: %s" % _last_stuck_reason
+	elif not _stuck_reports.is_empty():
+		var last: Dictionary = _stuck_reports[_stuck_reports.size() - 1]
+		var lp: Vector3 = last["pos"]
+		stuck_line = " 最近卡點 #%d: (%.1f, %.1f, %.1f) %s" % [int(last["id"]), lp.x, lp.y, lp.z, last["reason"]]
+	return " [怪物除錯模式] %s | %s | 移速: %.1f m/s\n 怪物座標: (%.2f, %.2f, %.2f) | 距玩家: %.1fm\n 目標座標: (%.2f, %.2f, %.2f) | 導航: %s\n 攀爬: %s | 已記錄卡點: %d 處\n%s" % [
+		layer_name, _state_label(), _current_speed,
+		p.x, p.y, p.z, dist,
+		t.x, t.y, t.z, nav_txt,
+		climb_txt, _stuck_reports.size(),
+		stuck_line
+	]
+
+
+func get_stuck_report_text(layer_name: String) -> String:
+	if _stuck_reports.is_empty():
+		var p := global_position
+		var t := _current_target
+		return "【%s 怪物除錯報告】目前尚未記錄到卡點。\n當前怪物座標: (%.2f, %.2f, %.2f) | 目標: (%.2f, %.2f, %.2f) | 狀態: %s" % [
+			layer_name, p.x, p.y, p.z, t.x, t.y, t.z, _state_label()
+		]
+	var lines: PackedStringArray = ["【%s 怪物卡點報告（共 %d 處）】" % [layer_name, _stuck_reports.size()]]
+	for rep in _stuck_reports:
+		lines.append(_format_single_stuck_report(rep))
+	return "\n".join(lines)
+
+
+func clear_stuck_reports() -> void:
+	_stuck_reports.clear()
+	_is_stuck = false
+	_last_stuck_reason = ""
+	if _debug_markers_root:
+		for child in _debug_markers_root.get_children():
+			child.queue_free()
