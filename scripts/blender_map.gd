@@ -51,7 +51,7 @@ func build_strata_nav_links(nav_map: RID) -> int:
 		return 0
 	_strata_links_built = true
 	# 放寬連結吸附半徑，確保寬闊廣場的大面積導航多邊形也能穩定接上 NavigationLink3D
-	NavigationServer3D.map_set_link_connection_radius(nav_map, 3.5)
+	NavigationServer3D.map_set_link_connection_radius(nav_map, 6.0)
 	var pairs: Array = [
 		# 校舍空房東側通道末端 (x=126) ↔ 街道廣場
 		[Vector3(125.0, -1.95, 186.0), Vector3(135.0, -1.95, 186.0)],

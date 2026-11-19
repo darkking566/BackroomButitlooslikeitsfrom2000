@@ -194,20 +194,20 @@ func _bake_navmesh() -> void:
 	var src := NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(nm, src, get_parent())
 	NavigationServer3D.bake_from_source_geometry_data_async(nm, src, func() -> void:
-		var nav_map := get_world_3d().navigation_map
-		var before_iter := NavigationServer3D.map_get_iteration_id(nav_map)
 		var region := NavigationRegion3D.new()
 		region.navigation_mesh = nm
 		get_parent().add_child(region)
-		_finalize_navmesh.call_deferred(before_iter)
+		_finalize_navmesh.call_deferred()
 	)
 
 
-func _finalize_navmesh(before_iter: int) -> void:
+func _finalize_navmesh() -> void:
 	var nav_map := get_world_3d().navigation_map
-	# 必須等到「加入 NavigationRegion3D 之後」的 iteration_id 增加，網格才真的同步完成
+	# 大型導航網格（2 萬+ 多邊形）會在背景執行緒非同步建索引：
+	# 必須等到實際查詢 map_get_closest_point 不再回傳 (0,0,0)，才代表多邊形真的進到導航伺服器裡
+	var probe := _home + Vector3(1.37, 0.0, 1.73)
 	var tries := 0
-	while NavigationServer3D.map_get_iteration_id(nav_map) <= before_iter and tries < 120:
+	while NavigationServer3D.map_get_closest_point(nav_map, probe).is_zero_approx() and tries < 300:
 		await get_tree().physics_frame
 		tries += 1
 	var bm := get_parent().get_node_or_null("BlenderMap")
@@ -215,9 +215,10 @@ func _finalize_navmesh(before_iter: int) -> void:
 		var link_before := NavigationServer3D.map_get_iteration_id(nav_map)
 		_nav_links_count = int(bm.call("build_strata_nav_links", nav_map))
 		var t2 := 0
-		while NavigationServer3D.map_get_iteration_id(nav_map) <= link_before and t2 < 30:
+		while NavigationServer3D.map_get_iteration_id(nav_map) <= link_before and t2 < 300:
 			await get_tree().physics_frame
 			t2 += 1
+		await get_tree().physics_frame
 	_nav_ready = true
 
 
