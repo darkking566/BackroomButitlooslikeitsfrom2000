@@ -26,6 +26,9 @@ var _prompt_label: Label
 var _taskbar: PanelContainer
 var _task_label: Label
 var _clock_label: Label
+var _coord_panel: PanelContainer
+var _coord_label: Label
+var _coord_copy_toast_left: float = 0.0
 
 var _overlay: Control
 var _explorer_group: Control
@@ -64,6 +67,66 @@ func _ready() -> void:
 	_build_overlay()
 	_build_settings()
 	_overlay.visible = false
+
+
+func _get_current_layer_name() -> String:
+	if _is_everpine_mall:
+		return "常青商場"
+	if _is_habitable_zone:
+		return "宜居地帶"
+	return "閾界"
+
+
+func _get_player_node() -> Node3D:
+	var cur := get_tree().current_scene
+	if cur:
+		var p := cur.get_node_or_null("Player")
+		if p is Node3D:
+			return p as Node3D
+	return null
+
+
+func _format_coord_report(p: Node3D) -> String:
+	var yaw_deg := int(round(rad_to_deg(p.rotation.y))) % 360
+	if yaw_deg < 0:
+		yaw_deg += 360
+	return "【%s】座標: (%.2f, %.2f, %.2f) | 面朝: %d°" % [
+		_get_current_layer_name(), p.position.x, p.position.y, p.position.z, yaw_deg
+	]
+
+
+func _process(delta: float) -> void:
+	if _coord_copy_toast_left > 0.0:
+		_coord_copy_toast_left = maxf(0.0, _coord_copy_toast_left - delta)
+	if not _coord_panel or not _coord_panel.visible or not _coord_label:
+		return
+	var p := _get_player_node()
+	if p == null:
+		_coord_label.text = " %s | 等待玩家生成... " % _get_current_layer_name()
+		return
+	var yaw_deg := int(round(rad_to_deg(p.rotation.y))) % 360
+	if yaw_deg < 0:
+		yaw_deg += 360
+	var footer := " ✓ 已複製座標到剪貼簿！(Ctrl+V 貼上回報)" if _coord_copy_toast_left > 0.0 else " [F3] 隱藏座標  |  [F4] 一鍵複製座標 "
+	_coord_label.text = " %s  |  X: %.2f   Y: %.2f   Z: %.2f   面朝: %d° \n%s" % [
+		_get_current_layer_name(), p.position.x, p.position.y, p.position.z, yaw_deg, footer
+	]
+
+
+func _input(event: InputEvent) -> void:
+	var key_ev := event as InputEventKey
+	if key_ev == null or not key_ev.pressed or key_ev.echo:
+		return
+	if key_ev.keycode == KEY_F3 or key_ev.physical_keycode == KEY_F3:
+		if _coord_panel:
+			_coord_panel.visible = not _coord_panel.visible
+	elif key_ev.keycode == KEY_F4 or key_ev.physical_keycode == KEY_F4:
+		var p := _get_player_node()
+		if p:
+			DisplayServer.clipboard_set(_format_coord_report(p))
+			_coord_copy_toast_left = 2.2
+			if _coord_panel:
+				_coord_panel.visible = true
 
 
 func is_popup_open() -> bool:
@@ -312,6 +375,27 @@ func _build_hud() -> void:
 	_prompt_label.add_theme_color_override("font_color", Color.BLACK)
 	_prompt_label.add_theme_font_size_override("font_size", 14)
 	_prompt_panel.add_child(_prompt_label)
+
+	# 左上角 Win95 風格即時座標顯示（[F3] 切換顯示、[F4] 一鍵複製回報）
+	_coord_panel = PanelContainer.new()
+	_coord_panel.add_theme_stylebox_override("panel", _make_raised_box(Color(0.753, 0.753, 0.753, 0.90)))
+	_coord_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_coord_panel.offset_left = 10
+	_coord_panel.offset_top = 10
+	_coord_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_coord_panel)
+
+	var coord_inner := PanelContainer.new()
+	coord_inner.add_theme_stylebox_override("panel", _make_sunken_box(Color(0.06, 0.08, 0.10, 0.92)))
+	coord_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_coord_panel.add_child(coord_inner)
+
+	_coord_label = Label.new()
+	_coord_label.text = " 座標載入中... "
+	_coord_label.add_theme_color_override("font_color", Color(0.72, 1.0, 0.76))
+	_coord_label.add_theme_font_size_override("font_size", 12)
+	_coord_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coord_inner.add_child(_coord_label)
 
 	_taskbar = PanelContainer.new()
 	_taskbar.add_theme_stylebox_override("panel", _make_raised_box(COL_BG))
