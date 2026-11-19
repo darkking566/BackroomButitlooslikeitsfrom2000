@@ -400,7 +400,7 @@ func _frenzy(delta: float, dist: float) -> bool:
 		moved = _step_climb(delta, ppos, FRENZY_SPEED)
 	else:
 		_repath_t -= delta
-		if _repath_t <= 0.0:
+		if _repath_t <= 0.0 and not _is_on_nav_link():
 			_repath_t = 0.18
 			_go_to(ppos)
 			_nav_unreachable = _unreachable(ppos)
@@ -497,7 +497,15 @@ func _start_climb(normal: Vector3, hit_pos: Vector3) -> void:
 	_climb_last_wall_pos = hit_pos
 	global_position = Vector3(hit_pos.x, global_position.y, hit_pos.z) + _climb_normal * WALL_OFFSET
 	_path = PackedVector3Array()
+	_path_types = PackedInt32Array()
 	_path_i = 0
+
+
+func _is_on_nav_link() -> bool:
+	if _path.is_empty() or _path_i >= _path.size():
+		return false
+	return (_path_i < _path_types.size() and _path_types[_path_i] == NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK) \
+		or (_path_i > 0 and _path_i - 1 < _path_types.size() and _path_types[_path_i - 1] == NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK)
 
 
 func _stop_climb(cooldown: float = 0.35) -> void:
@@ -522,8 +530,7 @@ func _move_along_path(step: float, allow_climb_on_wall: bool) -> bool:
 		var move_dist := minf(remaining, seg_dist)
 		var next_pos := global_position + delta_vec.normalized() * move_dist
 		# 若此段是顯式建立的跨層 NavigationLink3D，允許沿連結垂直上下而不被樓板擋住
-		var on_nav_link := (_path_i < _path_types.size() and _path_types[_path_i] == NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK) \
-			or (_path_i > 0 and _path_i - 1 < _path_types.size() and _path_types[_path_i - 1] == NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK)
+		var on_nav_link := _is_on_nav_link()
 		if not on_nav_link:
 			# 腰部高度防穿牆檢查：若路徑切角撞到實心垂直牆，絕不穿牆
 			var wall_hit := _raycast_world(global_position + Vector3.UP * 0.9, next_pos + Vector3.UP * 0.9)
@@ -867,6 +874,7 @@ func _reset() -> void:
 	_stop_ragdoll()
 	global_position = _home
 	_path = PackedVector3Array()
+	_path_types = PackedInt32Array()
 	_path_i = 0
 	_echo_left = 0
 	_snap_roll = 0.0
